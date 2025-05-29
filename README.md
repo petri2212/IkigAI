@@ -11,3 +11,15 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 - Why it is relevant
 - Pros and cons of the solution
 
+## Second Phase develop a RAG engine
+
+### Setup
+```bash
+- git clone `https://github.com/petri2212/IkigAI.git`
+- cd to repo
+- npm install
+- create .env.local with your own API 
+
+### Requirements
+
+- OpenAI API valid key
