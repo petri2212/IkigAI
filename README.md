@@ -15,10 +15,11 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 
 ### Setup
 ```bash
-- git clone `https://github.com/petri2212/IkigAI.git`
-- cd to repo
-- npm install
-- create .env.local with your own API 
+- `git clone https://github.com/petri2212/IkigAI.git`
+- `cd` to repo
+- `npm install`
+- create .env.local with your own API, "OPENAI_API_KEY=sk-"
+- `npm run dev`
 
 ### Requirements
 
