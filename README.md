@@ -1,7 +1,7 @@
 # IkigAI
 Bachelor Thesis
 
-## First Phase Literature review 
+## First Phase - Literature review 
 
 We started by researching scientific articles, ... dealing with the topics to be inherent in our thesis.
 We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web of Science to retrieve:
@@ -11,10 +11,10 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 - Why it is relevant
 - Pros and cons of the solution
 
-## Second Phase develop a RAG engine
+## Second Phase - Develop a RAG engine
 
 ### Setup
-```bash
+
 - `git clone https://github.com/petri2212/IkigAI.git`
 - `cd` to repo
 - `npm install`
