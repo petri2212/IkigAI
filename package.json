@@ -1,5 +1,5 @@
 {
-  "name": "ykigai",
+  "name": "ikigai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "dotenv": "^16.5.0",
-    "next": "15.3.2",
+    "firebase": "^12.0.0",
+    "next": "^15.4.5",
     "openai": "^4.103.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
