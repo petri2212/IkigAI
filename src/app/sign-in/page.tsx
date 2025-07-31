@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSignInWithEmailAndPassword } from 'react-firebase-hooks/auth';
 import { auth } from '@/app/firebase/config';
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SignInPage() {
     const [email, setEmail] = useState("");
@@ -14,10 +15,10 @@ export default function SignInPage() {
         e.preventDefault();
         try {
             const res = await signInWithEmailAndPassword(email, password);
-            console.log( res );
+            console.log(res);
             setEmail("");
             setPassword("");
-            router.push("/"); // Redirect to home page after successful sign-in
+            router.push("/protected/"); // Redirect to home page after successful sign-in
         } catch (e) {
             console.error("Error signing in:", e);
         }
@@ -58,6 +59,12 @@ export default function SignInPage() {
                     >
                         Sign In
                     </button>
+
+                    <Link href={"/sign-up"} className="text-blue-500 hover:underline text-center block mt-4">
+
+                        Don't have an account? Sign Up
+
+                    </Link>
                 </form>
             </div>
         </div>
