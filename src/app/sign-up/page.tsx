@@ -1,14 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useCreateUserWithEmailAndPassword } from 'react-firebase-hooks/auth';
+import { useCreateUserWithEmailAndPassword, useSignInWithEmailAndPassword} from 'react-firebase-hooks/auth';
 import { auth } from '@/app/firebase/config';
 import Link from 'next/link';
-import router from 'next/router';
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
+  const router = useRouter();
 
   const [
     createUserWithEmailAndPassword,
@@ -19,7 +21,14 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await createUserWithEmailAndPassword(email, password);
+    try {
+      await createUserWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(email, password);
+      router.replace('/protected/'); // Redirect to sign-in page after successful registration
+    } catch {
+       console.error("Error signing in:", e);
+    }
+
   };
 
   useEffect(() => {
@@ -30,6 +39,10 @@ export default function SignUpPage() {
       setPassword('');
     }
   }, [userCredential]);
+
+  if(showSuccess){
+    
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-700">
