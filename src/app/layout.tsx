@@ -27,8 +27,8 @@ export default function RootLayout({
     <html lang="en">
       <body 
         style={{
-          backgroundColor: '#374151', // corrisponde a bg-gray-700 Tailwind
-          color: 'white',
+          backgroundColor: '#FEFEFE', 
+          color: 'darkgray',
           margin: 0,
           minHeight: '100vh',
         }}
