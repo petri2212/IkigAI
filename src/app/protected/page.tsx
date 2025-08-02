@@ -40,7 +40,7 @@ export default function ProtectedPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-800 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-background text-white">
       <div className="bg-gray-900 p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
         <h1 className="text-2xl font-bold mb-6">Benvenuto nella pagina protetta</h1>
 
