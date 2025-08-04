@@ -46,7 +46,7 @@ export default function HomePage() {
           <div className="mb-20">
             <h3 className="text-2xl font-semibold text-gray-800 mb-4">Career Match</h3>
             <p className="text-gray-700 leading-relaxed mb-6">
-              In questa prima fase, l’utente può scegliere tra due percorsi:
+              Esistono due percorsi possibili:
             </p>
 
             <div className="grid md:grid-cols-2 gap-8 mb-10">
