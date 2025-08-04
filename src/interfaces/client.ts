@@ -20,11 +20,16 @@ const mcp = new Client(
     capabilities: { sampling: {} },
   }
 );
-
+console.log("You are connected 1");
 const transport = new StdioClientTransport({
   command: "node",
-  args: ["build/server.js"],
+  args: ["build/interfaces/server.js"],
   stderr: "ignore",
+  /*
+  command: "npx",
+  args: ["tsx", "src/interfaces/server.ts"],
+  stderr: "ignore",*/
+
 });
 
 const openai = createOpenAI({
@@ -214,7 +219,9 @@ async function handleQuery(tools: Tool[]) {
   })
 
   console.log(
-    //text || toolResults[0]?.result?.content[0]?.text || "No text generated."
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    text || toolResults[0]?.result?.content[0]?.text || "No text generated."
   )
 }
 
