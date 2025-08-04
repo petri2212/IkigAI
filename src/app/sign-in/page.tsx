@@ -4,15 +4,39 @@ import { useSignInWithEmailAndPassword } from 'react-firebase-hooks/auth';
 import { auth } from '@/app/firebase/config';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from 'next/image';
 import { FcGoogle } from "react-icons/fc";
-import Header from "../components/header";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export default function SignInPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
     const router = useRouter();
+    const provider = new GoogleAuthProvider();
+    const authGoogle = getAuth();
+
+    const signInGoogle = async () => {
+        try {
+            const result = await signInWithPopup(auth, provider);
+
+            const credential = GoogleAuthProvider.credentialFromResult(result);
+            if (credential) {
+                const token = credential.accessToken;
+            } else {
+                console.error("No credential found");
+            }
+
+            const user = result.user;
+
+            router.push("/protected/"); // opzionale: reindirizza dopo login
+        } catch (error: any) {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            const email = error.customData?.email;
+            const credential = GoogleAuthProvider.credentialFromError(error);
+            console.error("Google sign-in error:", errorMessage);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -34,7 +58,8 @@ export default function SignInPage() {
         >
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
                 <h1 className="text-4xl text-gray-700 font-bold mb-12 text-center ">Log In</h1>
-                <button className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:shadow-lg px-4 py-3 mb-8 rounded-2xl shadow cursor-pointer text-gray-400 hover:text-gray-700">
+                <button className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:shadow-lg px-4 py-3 mb-8 rounded-2xl shadow cursor-pointer text-gray-400 hover:text-gray-700"
+                    onClick={signInGoogle}>
                     <FcGoogle className="text-xl" />
                     <span className="font-medium">Sign in with Google</span>
                 </button>
@@ -64,7 +89,7 @@ export default function SignInPage() {
 
                     <button
                         type="submit"
-                        className="w-full bg-gray-600 text-white py-2 px-4 rounded-xl hover:bg-gray-700 transition cursor-pointer"
+                        className="w-full bg-gray-800 text-white py-3 px-4 rounded-xl hover:bg-gray-900 transition mt-6"
                     >
                         Login
                     </button>
