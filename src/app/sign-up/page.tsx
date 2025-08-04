@@ -83,7 +83,7 @@ export default function SignUpPage() {
       style={{ backgroundImage: "url('/images/wallpaper1.png')" }}
     >
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        <h1 className="text-4xl text-gray-800 font-semibold mb-10 text-center">Create Account</h1>
+        <h1 className="text-4xl text-gray-700 font-semibold mb-10 text-center">Create Account</h1>
 
         {showSuccess ? (
           <div className="text-center space-y-4">
