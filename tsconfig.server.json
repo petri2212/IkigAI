@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "build",
+    "module": "ESNext",
+    "target": "ES2020",
+    "moduleResolution": "node",
+    "rootDir": "src",
+    "allowJs": false,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/interfaces/server.ts",
+    "src/interfaces/client.ts"
+    ]
+}
