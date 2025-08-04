@@ -4,6 +4,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { useSignOut } from 'react-firebase-hooks/auth';
 import { auth } from '@/infrastructure/firebase/config';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function ProtectedPage() {
   const [user, authLoading] = useAuthState(auth);
@@ -19,7 +20,7 @@ export default function ProtectedPage() {
   // Se sto caricando lo stato auth, non mostrare ancora la pagina
   if (authLoading) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-700 text-white z-50 px-4">
+      <div className="fixed inset-0 flex flex-col items-center justify-center text-white z-50 px-4">
         <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
         <p className="text-lg font-semibold tracking-wide animate-pulse">
           Caricamento in corso...
@@ -40,22 +41,48 @@ export default function ProtectedPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-white">
-      <div className="bg-gray-900 p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
-        <h1 className="text-2xl font-bold mb-6">Benvenuto nella pagina protetta</h1>
+    <main className="min-h-screen flex flex-col bg-white text-gray-800 overflow-y-auto">
+      <section
+        className="bg-white min-h-screen flex items-center justify-center px-6 md:px-12 lg:px-24 bg-cover bg-center bg-no-repeat text-center"
+        style={{ backgroundImage: "url('/images/wallpaper1.png')" }}
+      >
+        <div className="max-w-5xl w-full">
+          <div className="mb-16">
+            <h3 className="text-6xl font-bold text-gray-900 mb-12">Career Match</h3>
 
-        <button
-          onClick={handleLogout}
-          disabled={signOutLoading}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-xl transition"
-        >
-          {signOutLoading ? 'Logout...' : 'Logout'}
-        </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Link
+                href={{
+                  pathname: "/protected/career-match",
+                  query: { path: "simplified" },
+                }}
+                className="group relative bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left"
+              >
+                <h4 className="text-2xl font-bold text-blue-800 mb-3 group-hover:underline">Simplified Path</h4>
+                <p className="text-gray-700 text-base leading-relaxed">
+                  Provide minimal information. Quick access, reduced personalization.
+                </p>
+                <span className="absolute bottom-4 right-6 text-blue-500 text-sm group-hover:underline">Continue →</span>
+              </Link>
 
-        {signOutError && (
-          <p className="text-red-400 mt-4">Errore durante il logout: {signOutError.message}</p>
-        )}
-      </div>
-    </div>
+              <Link
+                href={{
+                  pathname: "/protected/career-match",
+                  query: { path: "complete" },
+                }}
+                className="group relative bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left"
+              >
+                <h4 className="text-2xl font-bold text-green-800 mb-3 group-hover:underline">Complete Path</h4>
+                <p className="text-gray-700 text-base leading-relaxed">
+                  Enter all your info and traits for an accurate profile and tailored coaching.
+                </p>
+                <span className="absolute bottom-4 right-6 text-green-500 text-sm group-hover:underline">Continue →</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
   );
 }
