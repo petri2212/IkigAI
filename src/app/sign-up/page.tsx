@@ -32,7 +32,7 @@ const validatePassword = (password: string): string | null => {
   const number = /[0-9]/;
   const specialChar = /[^A-Za-z0-9]/;
 
-  if (!minLength.test(password)) return 'Password must be at least 8 characters.';
+  if (!minLength.test(password)) return 'Password must be at least 7 characters.';
   if (!uppercase.test(password)) return 'Password must include at least one uppercase letter.';
   if (!lowercase.test(password)) return 'Password must include at least one lowercase letter.';
   if (!number.test(password)) return 'Password must include at least one number.';
