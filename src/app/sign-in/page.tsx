@@ -5,35 +5,30 @@ import { auth } from '@/infrastructure/firebase/config';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export default function SignInPage() {
+    // State for email and password inputs
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
+    
     const router = useRouter();
     const provider = new GoogleAuthProvider();
-    const authGoogle = getAuth();
 
     const signInGoogle = async () => {
         try {
             const result = await signInWithPopup(auth, provider);
-
             const credential = GoogleAuthProvider.credentialFromResult(result);
             if (credential) {
-                const token = credential.accessToken;
             } else {
                 console.error("No credential found");
             }
 
-            const user = result.user;
 
-            router.push("/protected/"); // opzionale: reindirizza dopo login
+            router.push("/protected/"); 
         } catch (error: any) {
-            const errorCode = error.code;
             const errorMessage = error.message;
-            const email = error.customData?.email;
-            const credential = GoogleAuthProvider.credentialFromError(error);
             console.error("Google sign-in error:", errorMessage);
         }
     };
