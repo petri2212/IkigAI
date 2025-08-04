@@ -61,8 +61,7 @@ export default function HomePage() {
               <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
                 <h4 className="font-semibold text-gray-800 text-lg mb-2">Complete Path</h4>
                 <p className="text-gray-700 leading-relaxed">
-                  The user fills in all the requested information, including personality traits (assessed through tools like the Big Five test or similar open-source assessments).
-                  This approach allows for a more accurate profile and more effective support in the next phase.
+                  The user fills in all the requested information, including personality traits. This approach allows for a more accurate profile and more effective support in the next phase.
                 </p>
               </div>
             </div>
