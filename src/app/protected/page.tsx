@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useSignOut } from 'react-firebase-hooks/auth';
-import { auth } from '@/app/firebase/config';
+import { auth } from '@/infrastructure/firebase/config';
 import { useRouter } from 'next/navigation';
 
 export default function ProtectedPage() {

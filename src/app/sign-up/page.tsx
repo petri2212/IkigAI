@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useCreateUserWithEmailAndPassword } from 'react-firebase-hooks/auth';
-import { auth } from '@/app/firebase/config';
+import { auth } from '@/infrastructure/firebase/config';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sendEmailVerification } from 'firebase/auth';
