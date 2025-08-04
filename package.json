@@ -2,7 +2,7 @@
   "name": "ikigai",
   "version": "0.1.0",
   "private": true,
-  "main": "src/lib/server.ts",
+  "main": "src/interfaces/server.ts",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -10,9 +10,9 @@
     "lint": "next lint",
     "server:build": "tsc",
     "server:build:watch": "tsc --watch",
-    "server:dev": "tsx src/lib/server.ts",
+    "server:dev": "tsx src/interfaces/server.ts",
     "server:inspect": "set DANGEROUSLY_OMIT_AUTH=true && npx @modelcontextprotocol/inspector npm run server:dev",
-    "client:dev": "tsx src/lib/client.ts"
+    "client:dev": "tsx src/interfaces/client.ts"
   },
   "dependencies": {
     "dotenv": "^16.5.0",
