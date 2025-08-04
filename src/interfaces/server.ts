@@ -14,7 +14,7 @@ const server = new McpServer({
         prompts:{},
     }
 })
-/*
+
 server.resource(
     "users",
     "user://all",
@@ -30,8 +30,8 @@ server.resource(
              contents:[{uri: uri.href, text: JSON.stringify(users), mimeType:"application/json"}]
         }
     }
-)*/
-/*
+)
+
 server.resource("user-details", new ResourceTemplate("users://{userId}/profile", {list:undefined}),
      {
         description: "Get a user's details from the database",
@@ -177,8 +177,7 @@ server.tool(
       }
     }
   }
-)*/
-
+)
 //u have to install mongodb
 server.tool(
   "save-pdf-to-mongo",
@@ -211,7 +210,7 @@ server.tool(
       const db = client.db("IkigAI")
       const collection = db.collection("CVs")
 
-      //  Percorso al PDF (puoi sostituire con quello che preferisci)
+      //  Percorso al PDF 
       const pdfPath = path.resolve("files", "Andrei__Resume.pdf")
       const buffer = await fs.readFile(pdfPath)
 
@@ -297,7 +296,7 @@ server.tool(
     }
   }
 )
-/*
+
 server.prompt("generate-fake-user", "Generate a fake user based on a given name", {name: z.string()
     },
         ({name}) => {
@@ -313,7 +312,7 @@ server.prompt("generate-fake-user", "Generate a fake user based on a given name"
             
           }
         }
-    )*/
+    )
 
 
 async function createUser(user:{
