@@ -22,13 +22,13 @@ const mcp = new Client(
 );
 console.log("You are connected 1");
 const transport = new StdioClientTransport({
-  command: "node",
+  /*command: "node",
   args: ["build/interfaces/server.js"],
   stderr: "ignore",
-  /*
+  */
   command: "npx",
   args: ["tsx", "src/interfaces/server.ts"],
-  stderr: "ignore",*/
+  stderr: "ignore",
 
 });
 
