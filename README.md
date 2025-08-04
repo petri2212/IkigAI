@@ -17,9 +17,10 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 
 - `git clone https://github.com/petri2212/IkigAI.git`
 - `cd` to repo
-- `npm install`
-- create .env.local with your own API
-`OPENAI_API_KEY=...
+- `npm install`Crea un file `.env.local` nella root del progetto con il seguente contenuto:
+- create `.env.local` in the root of the project with the following environment variables:
+```
+OPENAI_API_KEY=...
 ADZUNA_APP_KEY=...
 MONGODB_URI="..."
 
@@ -28,7 +29,8 @@ NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-NEXT_PUBLIC_FIREBASE_APP_ID=1:44010865486:web:f69294cf4dd2fcde21141f`
+NEXT_PUBLIC_FIREBASE_APP_ID=1:44010865486:web:f69294cf4dd2fcde21141f
+```
 - `npm run dev`
 
 ### Requirements
