@@ -21,7 +21,7 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50">
+    <header className={`fixed top-0 left-0 w-full z-50 ${showLoginButton ? 'bg-background/90' : 'bg-transparent'}`}>
       <div
         className={`flex items-center px-6 py-4 max-w-7xl mx-auto ${showLoginButton ? 'justify-between' : 'justify-center'
           }`}
@@ -39,7 +39,7 @@ export default function Header() {
         {showLoginButton && (
           <button
             onClick={() => router.push('/sign-in')}
-            className="bg-gray-500 hover:bg-gray-600 transition text-white font-semibold py-2 px-6 rounded-xl cursor-pointer"
+            className="bg-gray-600 hover:bg-gray-700 transition text-white font-semibold py-2 px-6 rounded-xl cursor-pointer"
           >
             Sign In
           </button>
