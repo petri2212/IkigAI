@@ -1,20 +1,54 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { HiX, HiMenu } from 'react-icons/hi';
+import Link from 'next/link';
+import Image from 'next/image';
+import { FaArrowCircleRight, FaPlus, FaRobot, FaUser } from 'react-icons/fa';
+import { Manrope } from 'next/font/google';
+
+const manrope = Manrope({
+    subsets: ['latin'],
+    weight: ['400', '500', '600'], // pesi che ti servono
+});
+
 
 type Message = {
     sender: 'user' | 'bot';
     text: string;
 };
 
+type ChatHistoryItem = {
+    id: string;
+    title: string;
+};
+
 export default function ChatPage() {
+    const searchParams = useSearchParams();
+    const path = searchParams.get('path');
+
+
+    // Determino colore e nome percorso
+    const isSimplified = path === 'simplified';
+
+    // Sidebar aperta/chiusa
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    // Messaggi chat
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [hovered, setHovered] = useState(false);
+
+    // Chat history dummy
+    const [chatHistory] = useState<ChatHistoryItem[]>([
+        { id: '1', title: 'Chat with IkigAI 1' },
+        { id: '2', title: 'Chat with IkigAI 2' },
+    ]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Scroll automatico in basso quando arriva un nuovo messaggio
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isLoading]);
@@ -23,90 +57,271 @@ export default function ChatPage() {
         e.preventDefault();
         if (!input.trim()) return;
 
-        const userMessage: Message = {
-            sender: 'user',
-            text: input.trim(),
-        };
-
+        const userMessage: Message = { sender: 'user', text: input.trim() };
         setMessages((prev) => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
 
         try {
-            const responseText = await mockBotResponse(input.trim());
-            const botMessage: Message = {
-                sender: 'bot',
-                text: responseText,
-            };
-            setMessages((prev) => [...prev, botMessage]);
+            const botResponse = await mockBotResponse(input.trim());
+            setMessages((prev) => [...prev, { sender: 'bot', text: botResponse }]);
         } catch {
-            setMessages((prev) => [
-                ...prev,
-                { sender: 'bot', text: 'Something went wrong. Please try again later.' },
-            ]);
+            setMessages((prev) => [...prev, { sender: 'bot', text: 'Something went wrong. Please try again.' }]);
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleNewChat = () => {
+        setMessages([]);
+    };
+
+    // Classi dinamiche per colore principale e sfondo gradiente
+    const accentColor = isSimplified ? 'rgba(46, 105, 160, 1)' : '#2b9f55ff';
+    const textColor = isSimplified ? '#1e3a8a' : '#2b9f55ff';
+    const accentBg = isSimplified ? 'var(--color-blue-light)' : 'var(--color-green-light)';
+    const accentHover = isSimplified ? '#1e3a8a' : '#16a34a'; // blu-700 o green-600
+    const placeholderColor = isSimplified ? '#95a6d6ff' : '#a4d695ff'; // grigio placeholder
+    const lightBG = isSimplified ? '#1643c13a' : '#47d02139';
+    const baseColor = '#6b7280';
+    const imageSrc = isSimplified ? '/images/wallpaper1.png' : '/images/wallpaper2.png';
+
     return (
-        <div className="flex min-h-screen w-full">
-            <aside className="min-w-[10%] max-w-[15%] w-full bg-gray-100 border-r border-gray-300">
-                {/* Navbar / sidebar futura */}
-            </aside>
-
-            <main className="flex flex-col flex-1 bg-gray-50 p-6">
-
-                <h1 className="text-2xl font-semibold text-gray-800 text-center mb-6">
-                    Chat with IkigAI
-                </h1>
-
-                {/* Lista messaggi: scrollabile, altezza flessibile */}
-                <div className="flex-1 overflow-y-auto space-y-3 border border-gray-300 p-4 rounded-lg bg-white">
-                    {messages.map((msg, idx) => (
-                        <div
-                            key={idx}
-                            className={`p-3 rounded-lg max-w-[80%] ${msg.sender === 'user'
-                                    ? 'ml-auto bg-blue-100 text-blue-900'
-                                    : 'mr-auto bg-gray-200 text-gray-800'
-                                }`}
-                        >
-                            {msg.text}
-                        </div>
-                    ))}
-                    {isLoading && (
-                        <div className="mr-auto bg-gray-200 text-gray-500 p-3 rounded-lg max-w-[80%] italic">
-                            Typing...
-                        </div>
+        <div className="flex h-screen bg-blue-200" >
+            {/* Sidebar */}
+            <aside
+                className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-16'
+                    }`}
+            >
+                {/* Top bar: logo + toggle */}
+                <div className="flex items-center justify-between px-4 h-16 border-gray-200 ">
+                    {sidebarOpen ? (
+                        <h2 className="text-xl font-bold" >
+                            <Link href="/protected" className="flex items-center rounded-lg hover:bg-gray-100 transition p-2">
+                                <Image
+                                    src="/images/logo3.png"
+                                    alt="IkigAI Logo"
+                                    width={35}
+                                    height={35}
+                                    priority
+                                />
+                            </Link>
+                        </h2>
+                    ) : (
+                        <p></p>
                     )}
-                    {/* Ancora per scroll automatico */}
-                    <div ref={messagesEndRef} />
+
+                    <button
+                        onClick={() => setSidebarOpen((v) => !v)}
+                        className="p-1 rounded hover:bg-gray-200 transition"
+                        aria-label="Toggle sidebar"
+                    >
+                        {sidebarOpen ? (
+                            <HiX className="h-5 w-5" />
+                        ) : (
+                            <Image
+                                src="/images/logo3.png"
+                                alt="IkigAI Logo"
+                                width={35}
+                                height={35}
+                                priority
+                            />
+                        )}
+                    </button>
                 </div>
 
-                {/* Form invio messaggio */}
-                <form onSubmit={handleSubmit} className="mt-4 flex space-x-2">
-                    <input
-                        type="text"
-                        className="flex-1 border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        placeholder="Type your message..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        disabled={isLoading}
-                    />
+                {/* New Chat button */}
+                {sidebarOpen && (
                     <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition disabled:opacity-50"
+                        onClick={handleNewChat}
+                        className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 text-lg font-medium"
+                        style={{ color: accentColor }}
                     >
-                        Send
+                        <FaPlus /> New Chat
                     </button>
+
+
+
+                )}
+
+                {/* Chat History */}
+                <nav className="flex-1 overflow-y-auto px-2 space-y-1">
+                    {chatHistory.length === 0 && sidebarOpen && (
+                        <p className="text-gray-400 italic px-2 mt-4">No chat history</p>
+                    )}
+                    {chatHistory.map((chat) => (
+                        <button
+                            key={chat.id}
+                            className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition"
+                            style={{ color: accentColor }}
+                            onClick={() => alert(`Switch to chat ${chat.title} (implement later)`)}
+                        >
+                            {sidebarOpen ? chat.title : chat.title.charAt(0)}
+                        </button>
+                    ))}
+                </nav>
+            </aside>
+
+            {/* Main chat area */}
+            <main
+                className={`flex flex-col flex-1 bg-white relative mb-100 ${manrope.className}`}
+                style={{
+                    backgroundImage: `url('${imageSrc}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    minHeight: '100vh',
+                }}
+            >
+                {/* Titolo */}
+                <div className="flex items-center justify-center gap-4 py-4 backdrop-blur-sm shadow-sm z-1000">
+                    <h1 className="text-2xl font-semibold text-gray-800 text-center">Chat with IkigAI</h1>
+                    {path && (
+                        <span
+                            className="px-3 py-1 rounded-full text-sm font-semibold select-none"
+                            style={{
+                                backgroundColor: accentBg,
+                                color: accentColor,
+                                border: `1px solid ${accentColor}`,
+                            }}
+                        >
+                            {isSimplified ? 'Simplified Path' : 'Complete Path'}
+                        </span>
+                    )}
+                </div>
+
+                {/* Messaggi scrollabili fino in alto */}
+                <div className="flex-1 overflow-y-auto px-4 pb-20">
+                    <div className="max-w-[60%] mx-auto space-y-4">
+                        {messages.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className={`flex items-start mt-10 gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                            >
+                                {/* Icona all'inizio del messaggio */}
+                                <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                                    {msg.sender === 'bot' ? <Image
+                                        src="/images/logo3.png"
+                                        alt="IkigAI Logo"
+                                        width={24}
+                                        height={20}
+                                        priority
+                                    /> : <FaUser size={16} />}
+                                </div>
+
+                                {/* Testo del messaggio */}
+                                <div
+                                    className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
+                                    style={{
+                                        backgroundColor:
+                                            msg.sender === 'user'
+                                                ? 'rgba(46, 105, 160, 0.15)'
+                                                : 'rgba(255, 255, 255, 0.4)',
+                                        color: msg.sender === 'user' ? '#1e3a8a' : '#111827',
+                                        maxWidth: '75%'
+                                    }}
+                                >
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+
+                        {isLoading && (
+                            <div className="flex items-start gap-3 animate-pulse">
+                                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                                    <FaRobot size={16} />
+                                </div>
+                                <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
+                                    Typing...
+                                </div>
+                            </div>
+                        )}
+
+                        <div ref={messagesEndRef} />
+                    </div>
+                </div>
+
+
+                {/* Input centrato e fisso */}
+                <form
+                    onSubmit={handleSubmit}
+                    className="sticky bottom-10 mx-auto flex items-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 "
+                    style={{
+                        borderColor: accentColor,
+                        minHeight: '60px'
+                    }}
+                >
+                    <div className="relative flex-1">
+                        {/* Bottone upload */}
+                        <label
+                            className="absolute left-3 top-8 cursor-pointer transition-colors"
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                        >
+                            <FaPlus style={{ color: hovered ? accentHover : baseColor, fontSize: '1.5rem' }} />
+                            <input
+                                type="file"
+                                accept="application/pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                        console.log('PDF caricato:', e.target.files[0]);
+                                    }
+                                }}
+                            />
+                        </label>
+
+                        {/* Textarea multilinea */}
+                        <textarea
+                            placeholder="Type your message..."
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();  
+                                    handleSubmit(e);     
+                                }
+                            }}
+                            disabled={isLoading}
+                            className="w-full border rounded-lg pl-14 pr-14 py-2 focus:outline-none focus:ring-2 font-mono text-base resize-none whitespace-pre-wrap"
+                            rows={3}
+                            style={{
+                                borderColor: accentColor,
+                                backgroundColor: 'transparent',
+                                color: textColor
+                            }}
+                        />
+
+                        {/* Pulsante invio */}
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-3xl transition disabled:opacity-50"
+                            style={{
+                                color: input.trim() ? accentColor : placeholderColor,
+                                cursor: input.trim() ? 'pointer' : 'default'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (input.trim()) e.currentTarget.style.color = accentHover;
+                            }}
+                            onMouseLeave={(e) => {
+                                if (input.trim()) e.currentTarget.style.color = accentColor;
+                            }}
+                        >
+                            <FaArrowCircleRight />
+                        </button>
+                    </div>
                 </form>
+
+
             </main>
+
+
         </div>
     );
 }
 
-// Simulazione di una risposta del bot
+// Mock bot response
 async function mockBotResponse(userInput: string): Promise<string> {
     return new Promise((resolve) => {
         setTimeout(() => {
