@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import z from "zod";
 import fs from "node:fs/promises"
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import type { PdfDocument } from "../domain/pdf.ts"
 
 const server = new McpServer({
     name:"test",
@@ -183,56 +184,55 @@ server.tool(
   "save-pdf-to-mongo",
   "Save a local PDF file to MongoDB",
   {
+    id_unique: z.string(),     // custom name (you can use as _id if you want)
+    pdf: z.string(),      // base64 encoded PDF
+  },
+  {
     title: "Save PDF to MongoDB",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,
   },
-  async () => {
-    
-    const { MongoClient } = await import("mongodb")
-    const fs = await import("fs/promises")
-    const path = await import("path")
+  async ({ id_unique, pdf }) => {
+    const { MongoClient, ObjectId } = await import("mongodb")
+
     const mongoUri = process.env.MONGODB_URI
-    //const mongoUri = "mongodb://localhost:27017"
     if (!mongoUri) {
       throw new Error("MONGODB_URI environment variable is not set")
     }
+
     const client = new MongoClient(mongoUri)
-  
-   
 
     try {
-      //  Connetti al DB
       await client.connect()
-      
       const db = client.db("IkigAI")
-      const collection = db.collection("CVs")
+      const collection = db.collection<PdfDocument>("CVs");
 
-      //  Percorso al PDF 
-      const pdfPath = path.resolve("files", "Andrei__Resume.pdf")
-      const buffer = await fs.readFile(pdfPath)
+      const buffer = Buffer.from(pdf, "base64")
 
-      //  Documento Mongo
       const result = await collection.insertOne({
-        nome: "documento.pdf",
+        _id: id_unique, // use ObjectId for _id
         tipo: "application/pdf",
         file: buffer,
         uploadedAt: new Date(),
       })
-
       return {
         content: [
           {
             type: "text",
-            text: `PDF salvato con ID: ${result.insertedId.toString()}`,
+            text: `PDF saved with ID: ${result.insertedId.toString()}`,
           },
         ],
       }
     } catch (error) {
       return {
-        content: [{ type: "text", text: "Errore nel salvataggio del PDF." }],
+        content: [
+          {
+            type: "text",
+            text: `Errore: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
       }
     } finally {
       await client.close()
