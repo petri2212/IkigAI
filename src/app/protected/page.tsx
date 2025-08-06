@@ -25,7 +25,7 @@ export default function ProtectedPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Link
                 href={{ pathname: "/protected/career-match", query: { path: "simplified" } }}
-                className="group relative bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left"
+                className="group relative bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left link-simplified"
               >
                 <h4 className="text-2xl font-bold text-blue-800 mb-3 group-hover:underline">
                   Simplified Path
@@ -40,7 +40,7 @@ export default function ProtectedPage() {
 
               <Link
                 href={{ pathname: "/protected/career-match", query: { path: "complete" } }}
-                className="group relative bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left"
+                className="group relative bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left link-complete"
               >
                 <h4 className="text-2xl font-bold text-green-800 mb-3 group-hover:underline">
                   Complete Path
