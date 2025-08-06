@@ -218,13 +218,13 @@ server.tool(
     }
   }
 );
-//u have to install mongodb
+//create pdf to mongo
 server.tool(
   "save-pdf-to-mongo",
   "Save a local PDF file to MongoDB",
   {
-    id_unique: z.string(), // custom name (you can use as _id if you want)
-    pdf: z.string(), // base64 encoded PDF
+    id_unique: z.string(), // unique id of the user
+    pdf: z.string(), // base64 encoded PDF, right now i pass a path to test it
   },
   {
     title: "Save PDF to MongoDB",
@@ -234,7 +234,7 @@ server.tool(
     openWorldHint: true,
   },
   async ({ id_unique, pdf }) => {
-    const { MongoClient, ObjectId } = await import("mongodb");
+    const { MongoClient} = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
@@ -251,7 +251,7 @@ server.tool(
       const buffer = Buffer.from(pdf, "base64");
 
       const result = await collection.updateOne(
-        { _id: id_unique }, // filtro per trovare documento con _id = id_unique
+        { _id: id_unique }, // filter to find document with _id = id_unique
         {
           $set: {
             tipo: "application/pdf",
@@ -259,16 +259,16 @@ server.tool(
             uploadedAt: new Date(),
           },
         },
-        { upsert: true } // se non esiste, crea nuovo documento
+        { upsert: true } // if it doesnt exist it create a new document
       );
 
       return {
         content: [
           {
             type: "text",
-             text: result.upsertedId
-        ? `PDF saved with ID: ${result.upsertedId.toString()}`
-        : "PDF updated (existing CV replaced).",
+            text: result.upsertedId
+              ? `PDF saved with ID: ${result.upsertedId.toString()}`
+              : "PDF updated (existing CV replaced).",
           },
         ],
       };
@@ -288,21 +288,22 @@ server.tool(
     }
   }
 );
-
+//retrieve pdf from mongo
 server.tool(
   "get-pdf-from-mongo",
-  "Retrieve a PDF from MongoDB and save it locally",
+  "Retrieve a PDF from MongoDB by ID and return it as base64",
   {
-    title: "Get PDF from MongoDB",
+    id: z.string(),
+  },
+  {
+    title: "Get PDF by ID",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,
     openWorldHint: true,
   },
-  async () => {
-    const { MongoClient } = await import("mongodb");
-    const fs = await import("fs/promises");
-    const path = await import("path");
+  async ({ id }) => {
+    const { MongoClient} = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
@@ -313,32 +314,32 @@ server.tool(
     try {
       await client.connect();
       const db = client.db("IkigAI");
-      const collection = db.collection("CVs");
+      const collection = db.collection<PdfDocument>("CVs");
 
-      const filename = "documento.pdf";
-      const doc = await collection.findOne({ nome: filename });
+      const doc = await collection.findOne({ _id: id }); // id is string
 
       if (!doc) {
         return {
-          content: [{ type: "text", text: `PDF "${filename}" non trovato.` }],
+          content: [{ type: "text", text: `PDF with ID ${id} don't found.` }],
         };
       }
+      const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept 
+                                                                              // parameters on to string
 
-      const outputPath = path.resolve("files", filename);
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, doc.file.buffer);
+      // Then convert to base64:
+      const base64Pdf = buffer.toString("base64");
 
       return {
         content: [
           {
             type: "text",
-            text: `PDF "${filename}" salvato localmente in: ${outputPath}`,
+            text: base64Pdf,
           },
         ],
       };
-    } catch (err) {
+    } catch {
       return {
-        content: [{ type: "text", text: "Errore nel recupero del PDF." }],
+        content: [{ type: "text", text: "Error in retrieve the PDF." }],
       };
     } finally {
       await client.close();
