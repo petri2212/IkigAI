@@ -4,3 +4,4 @@ export interface PdfDocument {
   file: Buffer;
   uploadedAt: Date;
 }
+
