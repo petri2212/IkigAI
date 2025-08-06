@@ -10,6 +10,7 @@ import {
   PromptMessage,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js"
+import fs from "fs/promises";
 
 const mcp = new Client(
   {
@@ -135,7 +136,7 @@ async function main() {
     }
   }
 }
-
+/*
 async function handleTool(tool: Tool) {
   const args: Record<string, string> = {};
   for (const [key, value] of Object.entries(
@@ -151,7 +152,49 @@ async function handleTool(tool: Tool) {
     arguments: args,
   });
   console.log(((await res).content as [{ text: string }])[0].text);
+}*/
+async function handleTool(tool: Tool) {
+  const args: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(
+    tool.inputSchema.properties ?? {}
+  )) {
+    const type = (value as { type: string }).type;
+
+    // Gestione speciale per 'pdf'
+    if (key === "pdf") {
+      const filePath = await input({
+        message: "Enter the path to the PDF file:",
+      });
+
+      try {
+        const fileBuffer = await fs.readFile(filePath);
+        const base64String = fileBuffer.toString("base64");
+        args[key] = base64String;
+      } catch (err) {
+        if (err instanceof Error) {
+          console.error(`Failed to read file: ${err.message}`);
+        } else {
+          console.error("Failed to read file:", err);
+        }
+        return;
+      }
+    } else {
+      args[key] = await input({
+        message: `Enter value for ${key} (${type}):`,
+      });
+    }
+  }
+
+  const res = await mcp.callTool({
+    name: tool.name,
+    arguments: args,
+  });
+
+  const firstText = (res.content as [{ text: string }])[0]?.text ?? "No output";
+  console.log("Server response:", firstText);
 }
+
 
 async function handleResource(uri: string) {
   let finalUri = uri;
