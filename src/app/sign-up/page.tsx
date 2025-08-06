@@ -5,6 +5,7 @@ import { auth } from '@/infrastructure/firebase/config';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sendEmailVerification } from 'firebase/auth';
+import Header from '../components/header';
 
 // Funzione per messaggi di errore chiari
 const getFriendlyErrorMessage = (code: string): string => {
@@ -78,7 +79,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div
+    <><Header loading={false} /><div
       className="min-h-screen flex items-center justify-center bg-cover bg-center pt-24 px-4"
       style={{ backgroundImage: "url('/images/wallpaper1.png')" }}
     >
@@ -103,8 +104,7 @@ export default function SignUpPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-700 placeholder-gray-400"
-              required
-            />
+              required />
             <input
               id="password"
               placeholder="Password"
@@ -112,8 +112,7 @@ export default function SignUpPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-700 placeholder-gray-400"
-              required
-            />
+              required />
             <button
               type="submit"
               disabled={loading}
@@ -140,6 +139,6 @@ export default function SignUpPage() {
           </p>
         )}
       </div>
-    </div>
+    </div></>
   );
 }

@@ -2,24 +2,25 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useSignOut } from 'react-firebase-hooks/auth';
 import { auth } from '@/infrastructure/firebase/config';
 
-export default function Header() {
+type HeaderProps = {
+  loading?: boolean;
+};
+
+export default function Header({ loading = false }: HeaderProps) {
   const [atTop, setAtTop] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const showLoginButton = pathname !== '/sign-in' && pathname !== '/sign-up' && pathname !== '/sign-up';
+  const showLoginButton = pathname !== '/sign-in' && pathname !== '/sign-up';
   const isProtectedPage = pathname.startsWith('/protected');
+  const isChatPage = pathname === '/protected/career-match' || pathname === '/protected/career-coach';
   const [signOut, signOutLoading, signOutError] = useSignOut(auth);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setAtTop(window.scrollY < 10);
-    };
-
+    const handleScroll = () => setAtTop(window.scrollY < 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -29,12 +30,14 @@ export default function Header() {
     if (success) router.push('/');
   };
 
+  // Nascondi header se chat page o in fase di loading
+  if (isChatPage || loading ) {
+    return null;
+  }
+
   return (
-    <header className={`fixed top-0 left-0 w-full z-50 ${showLoginButton && !isProtectedPage? 'bg-background/90' : 'bg-transparent'}`}>
-      <div
-        className={`flex items-center px-6 py-4 max-w-7xl mx-auto ${showLoginButton ? 'justify-between' : 'justify-center'
-          }`}
-      >
+    <header className={`fixed top-0 left-0 w-full z-50 ${showLoginButton && !isProtectedPage ? 'bg-background/90' : 'bg-transparent'}`}>
+      <div className={`flex items-center px-6 py-4 max-w-7xl mx-auto ${showLoginButton ? 'justify-between' : 'justify-center'}`}>
         <Link href="/" className="flex items-center">
           <Image
             src="/images/logo2.png"
@@ -67,10 +70,7 @@ export default function Header() {
         {signOutError && (
           <p className="text-red-400 mt-4">Errore durante il logout: {signOutError.message}</p>
         )}
-
       </div>
     </header>
-
-
   );
 }

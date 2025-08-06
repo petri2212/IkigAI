@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import Header from "../components/header";
 
 export default function SignInPage() {
     // State for email and password inputs
@@ -47,7 +48,7 @@ export default function SignInPage() {
     };
 
     return (
-        <div
+        <><Header loading={false} /><div
             className="min-h-screen flex items-center justify-center bg-cover bg-center pt-24"
             style={{ backgroundImage: "url('/images/wallpaper1.png')" }}
         >
@@ -97,6 +98,6 @@ export default function SignInPage() {
                     </p>
                 </form>
             </div>
-        </div>
+        </div></>
     );
 }

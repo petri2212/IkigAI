@@ -1,9 +1,10 @@
 'use client';
 import React from 'react';
+import Header from './components/header';
 
 export default function HomePage() {
   return (
-    <main className="bg-white text-gray-800">
+    <><Header loading={false} /><main className="bg-white text-gray-800">
       {/* Section 1 - Ikigai */}
       <section className="min-h-screen flex flex-col justify-center px-6 py-20 bg-gradient-to-b from-white to-gray-100">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-x-24 items-center">
@@ -26,8 +27,7 @@ export default function HomePage() {
             <img
               src="/images/ikigai1.png"
               alt="Ikigai Visual"
-              className="w-full max-w-md md:max-w-lg lg:max-w-xl object-contain rounded-2xl"
-            />
+              className="w-full max-w-md md:max-w-lg lg:max-w-xl object-contain rounded-2xl" />
           </div>
         </div>
       </section>
@@ -96,6 +96,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-    </main>
+    </main></>
   );
 }

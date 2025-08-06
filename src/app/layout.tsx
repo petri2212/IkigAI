@@ -33,7 +33,6 @@ export default function RootLayout({
           minHeight: '100vh',
         }}
       >
-        <Header />
         {children}
       </body>
     </html>
