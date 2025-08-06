@@ -1,127 +1,166 @@
-import "dotenv/config"
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import "dotenv/config";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import z from "zod";
-import fs from "node:fs/promises"
+import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { PdfDocument } from "../domain/pdf.ts"
+import type { PdfDocument } from "../domain/pdf.ts";
 
 const server = new McpServer({
-    name:"test",
-    version:"1.0.0",
-    capabilities:{
-        resources:{},
-        tools:{},
-        prompts:{},
-    }
-})
+  name: "test",
+  version: "1.0.0",
+  capabilities: {
+    resources: {},
+    tools: {},
+    prompts: {},
+  },
+});
 
 server.resource(
-    "users",
-    "user://all",
-    {
-        description: "Get all user data from a database",
-        title: "Users",
-        mimeType: "application/json"
-    }, async uri =>{
-        const users = await import("./data/users.json",{
-        with:{type: "json"}
-    } ).then(m => m.default)
-        return{ 
-             contents:[{uri: uri.href, text: JSON.stringify(users), mimeType:"application/json"}]
-        }
-    }
-)
-
-server.resource("user-details", new ResourceTemplate("users://{userId}/profile", {list:undefined}),
-     {
-        description: "Get a user's details from the database",
-        title: "User Details",
-        mimeType: "application/json"
-    }, async (uri, {userId}) =>{
-        const users = await import("./data/users.json",{
-        with:{type: "json"}
-    } ).then(m => m.default)
-
-    const user = users.find(u => u.id === parseInt(userId as string))
-    if (user == null){
-        return{ 
-             contents:[{uri: uri.href, text: JSON.stringify({error: "User not found"}), mimeType:"application/json"}]
-        }
-    }
-     return{ 
-             contents:[{uri: uri.href, text: JSON.stringify(user), mimeType:"application/json"}]
-        }
-    }
-
-)
-
-server.resource("get-jobs", "job://all",
+  "users",
+  "user://all",
   {
-        description: "Get all jobs from a database",
-        title: "jobs",
-        mimeType: "application/json"
-    }, async uri => {
+    description: "Get all user data from a database",
+    title: "Users",
+    mimeType: "application/json",
+  },
+  async (uri) => {
+    const users = await import("./data/users.json", {
+      with: { type: "json" },
+    }).then((m) => m.default);
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          text: JSON.stringify(users),
+          mimeType: "application/json",
+        },
+      ],
+    };
+  }
+);
+
+server.resource(
+  "user-details",
+  new ResourceTemplate("users://{userId}/profile", { list: undefined }),
+  {
+    description: "Get a user's details from the database",
+    title: "User Details",
+    mimeType: "application/json",
+  },
+  async (uri, { userId }) => {
+    const users = await import("./data/users.json", {
+      with: { type: "json" },
+    }).then((m) => m.default);
+
+    const user = users.find((u) => u.id === parseInt(userId as string));
+    if (user == null) {
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify({ error: "User not found" }),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    }
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          text: JSON.stringify(user),
+          mimeType: "application/json",
+        },
+      ],
+    };
+  }
+);
+
+server.resource(
+  "get-jobs",
+  "job://all",
+  {
+    description: "Get all jobs from a database",
+    title: "jobs",
+    mimeType: "application/json",
+  },
+  async (uri) => {
     const appId = process.env.ADZUNA_APP_ID;
     const appKey = process.env.ADZUNA_APP_KEY;
 
-    const response = await fetch(`https://api.adzuna.com/v1/api/jobs/it/search/1?app_id=${appId}&app_key=${appKey}&&results_per_page=20&what=javascript%20developer&content-type=application/json`);
+    const response = await fetch(
+      `https://api.adzuna.com/v1/api/jobs/it/search/1?app_id=${appId}&app_key=${appKey}&&results_per_page=20&what=javascript%20developer&content-type=application/json`
+    );
     //http://api.adzuna.com/v1/api/jobs/gb/search/1?app_id={YOUR API ID}&app_key={YOUR API KEY}&results_per_page=20&what=javascript%20developer&content-type=application/json
     if (!response.ok) {
-      throw new Error(`Failed to fetch jobs from Adzuna: ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch jobs from Adzuna: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
-    const jobs = data.results.map((job: { title: any; company: { display_name: any; }; location: { display_name: any; }; description: any; redirect_url: any; }) => ({
-  title: job.title,
-  company: job.company.display_name,
-  location: job.location.display_name,
-  description: job.description,
-  url: job.redirect_url
-  }));
-    
+    const jobs = data.results.map(
+      (job: {
+        title: any;
+        company: { display_name: any };
+        location: { display_name: any };
+        description: any;
+        redirect_url: any;
+      }) => ({
+        title: job.title,
+        company: job.company.display_name,
+        location: job.location.display_name,
+        description: job.description,
+        url: job.redirect_url,
+      })
+    );
+
     //content as [{ text: string }])[0].text
     return {
-      
-      contents: [{
-        uri: uri.href,
-        text: JSON.stringify(jobs, null, 2), //JSON.stringify(data), // or filter it before returning
-        mimeType: "application/json"
-      }]
-     
+      contents: [
+        {
+          uri: uri.href,
+          text: JSON.stringify(jobs, null, 2), //JSON.stringify(data), // or filter it before returning
+          mimeType: "application/json",
+        },
+      ],
     };
   }
-)
+);
 
-
-server.tool("create-user", "Create a new user in the database",{
+server.tool(
+  "create-user",
+  "Create a new user in the database",
+  {
     name: z.string(),
-    email:z.string(),
+    email: z.string(),
     address: z.string(),
     phone: z.string(),
-},{
+  },
+  {
     title: "Create User",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true, //does interact with the external world?
-
-}, async (params) => {
+  },
+  async (params) => {
     try {
-       const id = await createUser(params)
-       return{
-            content:[
-                {type: "text", text: `User ${id} created successfully`}
-            ]
-        }
+      const id = await createUser(params);
+      return {
+        content: [{ type: "text", text: `User ${id} created successfully` }],
+      };
     } catch {
-        return{
-            content:[
-                {type: "text", text: "Failed to save user"}
-            ]
-        }
+      return {
+        content: [{ type: "text", text: "Failed to save user" }],
+      };
     }
-})
+  }
+);
 
 server.tool(
   "create-random-user",
@@ -151,12 +190,12 @@ server.tool(
         },
       },
       CreateMessageResultSchema
-    )
+    );
 
     if (res.content.type !== "text") {
       return {
         content: [{ type: "text", text: "Failed to generate user data" }],
-      }
+      };
     }
 
     try {
@@ -166,26 +205,26 @@ server.tool(
           .replace(/^```json/, "")
           .replace(/```$/, "")
           .trim()
-      )
+      );
 
-      const id = await createUser(fakeUser)
+      const id = await createUser(fakeUser);
       return {
         content: [{ type: "text", text: `User ${id} created successfully` }],
-      }
+      };
     } catch {
       return {
         content: [{ type: "text", text: "Failed to generate user data" }],
-      }
+      };
     }
   }
-)
+);
 //u have to install mongodb
 server.tool(
   "save-pdf-to-mongo",
   "Save a local PDF file to MongoDB",
   {
-    id_unique: z.string(),     // custom name (you can use as _id if you want)
-    pdf: z.string(),      // base64 encoded PDF
+    id_unique: z.string(), // custom name (you can use as _id if you want)
+    pdf: z.string(), // base64 encoded PDF
   },
   {
     title: "Save PDF to MongoDB",
@@ -195,50 +234,60 @@ server.tool(
     openWorldHint: true,
   },
   async ({ id_unique, pdf }) => {
-    const { MongoClient, ObjectId } = await import("mongodb")
+    const { MongoClient, ObjectId } = await import("mongodb");
 
-    const mongoUri = process.env.MONGODB_URI
+    const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
-      throw new Error("MONGODB_URI environment variable is not set")
+      throw new Error("MONGODB_URI environment variable is not set");
     }
 
-    const client = new MongoClient(mongoUri)
+    const client = new MongoClient(mongoUri);
 
     try {
-      await client.connect()
-      const db = client.db("IkigAI")
+      await client.connect();
+      const db = client.db("IkigAI");
       const collection = db.collection<PdfDocument>("CVs");
 
-      const buffer = Buffer.from(pdf, "base64")
+      const buffer = Buffer.from(pdf, "base64");
 
-      const result = await collection.insertOne({
-        _id: id_unique, // use ObjectId for _id
-        tipo: "application/pdf",
-        file: buffer,
-        uploadedAt: new Date(),
-      })
+      const result = await collection.updateOne(
+        { _id: id_unique }, // filtro per trovare documento con _id = id_unique
+        {
+          $set: {
+            tipo: "application/pdf",
+            file: buffer,
+            uploadedAt: new Date(),
+          },
+        },
+        { upsert: true } // se non esiste, crea nuovo documento
+      );
+
       return {
         content: [
           {
             type: "text",
-            text: `PDF saved with ID: ${result.insertedId.toString()}`,
+             text: result.upsertedId
+        ? `PDF saved with ID: ${result.upsertedId.toString()}`
+        : "PDF updated (existing CV replaced).",
           },
         ],
-      }
+      };
     } catch (error) {
       return {
         content: [
           {
             type: "text",
-            text: `Errore: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Errore: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
           },
         ],
-      }
+      };
     } finally {
-      await client.close()
+      await client.close();
     }
   }
-)
+);
 
 server.tool(
   "get-pdf-from-mongo",
@@ -251,33 +300,33 @@ server.tool(
     openWorldHint: true,
   },
   async () => {
-    const { MongoClient } = await import("mongodb")
-    const fs = await import("fs/promises")
-    const path = await import("path")
+    const { MongoClient } = await import("mongodb");
+    const fs = await import("fs/promises");
+    const path = await import("path");
 
-    const mongoUri = process.env.MONGODB_URI
+    const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
-      throw new Error("MONGODB_URI environment variable is not set")
+      throw new Error("MONGODB_URI environment variable is not set");
     }
-    const client = new MongoClient(mongoUri)
+    const client = new MongoClient(mongoUri);
 
     try {
-      await client.connect()
-      const db = client.db("IkigAI")
-      const collection = db.collection("CVs")
+      await client.connect();
+      const db = client.db("IkigAI");
+      const collection = db.collection("CVs");
 
-      const filename = "documento.pdf" 
-      const doc = await collection.findOne({ nome: filename })
+      const filename = "documento.pdf";
+      const doc = await collection.findOne({ nome: filename });
 
       if (!doc) {
         return {
           content: [{ type: "text", text: `PDF "${filename}" non trovato.` }],
-        }
+        };
       }
 
-      const outputPath = path.resolve("files", filename)
-      await fs.mkdir(path.dirname(outputPath), { recursive: true })
-      await fs.writeFile(outputPath, doc.file.buffer)
+      const outputPath = path.resolve("files", filename);
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      await fs.writeFile(outputPath, doc.file.buffer);
 
       return {
         content: [
@@ -286,60 +335,61 @@ server.tool(
             text: `PDF "${filename}" salvato localmente in: ${outputPath}`,
           },
         ],
-      }
+      };
     } catch (err) {
       return {
         content: [{ type: "text", text: "Errore nel recupero del PDF." }],
-      }
+      };
     } finally {
-      await client.close()
+      await client.close();
     }
   }
-)
+);
 
-server.prompt("generate-fake-user", "Generate a fake user based on a given name", {name: z.string()
-    },
-        ({name}) => {
-            return{
-                messages:[{
-                    role: 'user',
-                    content:{
-                        type: "text", text:`Generate a fake user with the name ${name}. 
-                        The user should have a realistic email, address, and a phone number.`
-                    },
-                },
-            ],
-            
-          }
-        }
-    )
+server.prompt(
+  "generate-fake-user",
+  "Generate a fake user based on a given name",
+  { name: z.string() },
+  ({ name }) => {
+    return {
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `Generate a fake user with the name ${name}. 
+                        The user should have a realistic email, address, and a phone number.`,
+          },
+        },
+      ],
+    };
+  }
+);
 
+async function createUser(user: {
+  name: string;
+  email: string;
+  address: string;
+  phone: string;
+}) {
+  const users = await import("./data/users.json", {
+    with: { type: "json" },
+  }).then((m) => m.default);
+  const id = users.length + 1;
+  users.push({ id, ...user });
+  await fs.writeFile("./src/data/users.json", JSON.stringify(users, null, 2));
 
-async function createUser(user:{
-    name: string,
-    email:string,
-    address: string,
-    phone:string
-}){
-    const users = await import("./data/users.json",{
-        with:{type: "json"}
-    } ).then(m => m.default)
-    const id = users.length + 1;
-    users.push({id, ...user})
-    await fs.writeFile("./src/data/users.json", JSON.stringify(users, null, 2))
-
-    return id
+  return id;
 }
-
 
 async function main() {
   // try {
-    const transport = new StdioServerTransport()
-    await server.connect(transport)
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
   //} catch (err) {
-   // console.error("Fatal error in server:", err)
-   // process.exit(1)
+  // console.error("Fatal error in server:", err)
+  // process.exit(1)
   //}
 }
 
-main()
+main();
