@@ -1,12 +1,5 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -33,4 +26,15 @@ html, body, #__next {
   padding: 0;
   background-color: #FEFEFE; 
   color: white;
+}
+
+:root {
+  --color-blue: #2563eb; /* blue-600 */
+  --color-blue-light: #dbeafe; /* blue-100 */
+  --color-green: #22c55e; /* green-500 */
+  --color-green-light: #bbf7d0; /* green-100 */
+}
+
+::-webkit-scrollbar {
+  width: 6px;
 }
