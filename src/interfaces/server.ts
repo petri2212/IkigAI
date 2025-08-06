@@ -7,7 +7,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import z from "zod";
 import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { PdfDocument } from "../domain/pdf.ts";
+import type { PdfDocument} from "../domain/pdf.ts";
+import type { User} from "../domain/user.ts";
 
 const server = new McpServer({
   name: "test",
@@ -245,7 +246,7 @@ server.tool(
 
     try {
       await client.connect();
-      const db = client.db("IkigAI");
+      const db = client.db("Main");
       const collection = db.collection<PdfDocument>("CVs");
 
       const buffer = Buffer.from(pdf, "base64");
@@ -313,7 +314,7 @@ server.tool(
 
     try {
       await client.connect();
-      const db = client.db("IkigAI");
+      const db = client.db("Main");
       const collection = db.collection<PdfDocument>("CVs");
 
       const doc = await collection.findOne({ _id: id }); // id is string
@@ -346,6 +347,133 @@ server.tool(
     }
   }
 );
+//save user information in mongo(id,name,surname,email)
+server.tool(
+  "save-user-to-mongo",
+  "Save user data to MongoDB",
+  {
+    id: z.string(),       // unique id of the user
+    name: z.string(),
+    surname: z.string(),
+    email: z.string(),
+  },
+  {
+    title: "Save User to MongoDB",
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+  async ({ id, name, surname, email }) => {
+    const { MongoClient } = await import("mongodb");
+
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGODB_URI environment variable is not set");
+    }
+
+    const client = new MongoClient(mongoUri);
+
+    try {
+      await client.connect();
+      const db = client.db("Main");
+      const collection = db.collection<User>("user_information");
+
+      await collection.updateOne(
+        { _id: id }, // usa `id` come _id per garantire unicità
+        {
+          $set: {
+            name,
+            surname,
+            email,
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true } // crea se non esiste
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Success: user data saved for ID: ${id}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+      };
+    } finally {
+      await client.close();
+    }
+  }
+);
+//save user profiling
+server.tool(
+  "save-user-profiling-mongo",
+  "Save user profiling to MongoDB",
+  {
+    id: z.string(),       // unique id of the user
+  },
+  {
+    title: "Save User profile to MongoDB",
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+  async ({ id }) => {
+    /**TODO
+     * Implement the user profiling implementation
+     */
+    return {
+      content: [
+        {
+          type: "text",
+          text: `User profile for ID ${id} saved (dummy implementation).`,
+        },
+      ],
+    };
+  }
+);
+
+server.tool(
+  "save-user-profiling-mongo",
+  "Save user profiling to MongoDB",
+  {
+    id: z.string(),       // unique id of the user
+  },
+  {
+    title: "Save User profile to MongoDB",
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+  async ({ id }) => {
+    /**TODO
+     * Implement the user profiling implementation
+     */
+    return {
+      content: [
+        {
+          type: "text",
+          text: `User profile for ID ${id} saved (dummy implementation).`,
+        },
+      ],
+    };
+  }
+);
+
+
 
 server.prompt(
   "generate-fake-user",
