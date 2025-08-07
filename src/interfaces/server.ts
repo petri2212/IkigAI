@@ -445,13 +445,13 @@ server.tool(
     };
   }
 );
-
+//save session data
 server.tool(
   "save-session-data",
   "Save session question and answer to MongoDB (append to array)",
   {
     id: z.string(),
-    number_session: z.number(),
+    number_session: z.string(),
     question: z.string(),
     answer: z.string(),
   },
@@ -477,7 +477,7 @@ server.tool(
       const db = client.db("Main");
       const collection = db.collection<Message>("Sessions");
 
-      const filter = { user_id: id, number_session: number_session.toString() };
+      const filter = { _id: id, number_session };
       const update = {
         $push: {
           q_and_a: {
@@ -517,7 +517,78 @@ server.tool(
     }
   }
 );
+//get session data
+server.tool(
+  "get-session-data",
+  "Retrieve session Q&A data for a specific user and session number",
+  {
+    id: z.string(),
+    number_session: z.string(),
+  },
+  {
+    title: "Get Session Data",
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
+  async ({ id, number_session }) => {
+    const { MongoClient } = await import("mongodb");
 
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGODB_URI environment variable is not set");
+    }
+
+    const client = new MongoClient(mongoUri);
+
+    try {
+      await client.connect();
+      const db = client.db("Main");
+      const collection = db.collection<Message>("Sessions");
+
+      const session = await collection.findOne({ _id: id, number_session });
+
+      if (!session) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No session found for user "${id}" with session number ${number_session}.`,
+            },
+          ],
+        };
+      }
+
+      const formattedQandA = (session.q_and_a ?? [])
+        .map(
+          (entry: any, index: number) =>
+            `${index + 1}. Q: ${entry.question}\n   A: ${entry.answer}`
+        )
+        .join("\n\n");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Session ${number_session} for user "${id}":\n\n${formattedQandA || "No Q&A entries found."}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error retrieving session: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    } finally {
+      await client.close();
+    }
+  }
+);
 
 
 
