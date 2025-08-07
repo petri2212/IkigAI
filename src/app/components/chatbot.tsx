@@ -11,7 +11,6 @@ import { handlePdfUpload } from "@/application/uploadPdf";
 //in order to get user id
 import { auth } from "@/infrastructure/firebase/config";
 
-
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600"], // pesi che ti servono
@@ -28,12 +27,11 @@ type ChatHistoryItem = {
 };
 
 export default function ChatPage() {
-
   const searchParams = useSearchParams();
   const path = searchParams.get("path");
   // Determino colore e nome percorso
   const isSimplified = path === "simplified";
-  const [uid, setUid] = useState<string | null>(null); 
+  const [uid, setUid] = useState<string | null>(null);
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -299,16 +297,32 @@ export default function ChatPage() {
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];
                     if (uid) {
-                      handlePdfUpload(file, uid); 
+                      try {
+                        const result = await handlePdfUpload(file, uid);
+                        if (result.success) {
+                          setMessages((prev) => [
+                            ...prev,
+                            { sender: "bot", text: "The PDF is uploaded." },
+                          ]);
+                        } else {
+                          setMessages((prev) => [
+                            ...prev,
+                            { sender: "bot", text: "Failed to upload PDF." },
+                          ]);
+                        }
+                      } catch (err) {
+                        setMessages((prev) => [
+                          ...prev,
+                          { sender: "bot", text: "Error uploading PDF." },
+                        ]);
+                      }
                     } else {
                       console.error("User ID is null. Cannot upload PDF.");
                     }
-                  }else{
-                    console.log("non funzia non funzia")
                   }
                 }}
               />
