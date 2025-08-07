@@ -9,6 +9,7 @@ import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { PdfDocument} from "../domain/pdf.ts";
 import type { User} from "../domain/user.ts";
+import type { Message} from "../domain/message.ts";
 
 const server = new McpServer({
   name: "test",
@@ -446,32 +447,77 @@ server.tool(
 );
 
 server.tool(
-  "save-user-profiling-mongo",
-  "Save user profiling to MongoDB",
+  "save-session-data",
+  "Save session question and answer to MongoDB (append to array)",
   {
-    id: z.string(),       // unique id of the user
+    id: z.string(),
+    number_session: z.number(),
+    question: z.string(),
+    answer: z.string(),
   },
   {
-    title: "Save User profile to MongoDB",
+    title: "Save Session Data (with Q&A array)",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,
   },
-  async ({ id }) => {
-    /**TODO
-     * Implement the user profiling implementation
-     */
-    return {
-      content: [
-        {
-          type: "text",
-          text: `User profile for ID ${id} saved (dummy implementation).`,
+  async ({ id, number_session, question, answer }) => {
+    const { MongoClient } = await import("mongodb");
+
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGODB_URI environment variable is not set");
+    }
+
+    const client = new MongoClient(mongoUri);
+
+    try {
+      await client.connect();
+      const db = client.db("Main");
+      const collection = db.collection<Message>("Sessions");
+
+      const filter = { user_id: id, number_session: number_session.toString() };
+      const update = {
+        $push: {
+          q_and_a: {
+            question,
+            answer,
+            timestamp: new Date(),
+          },
         },
-      ],
-    };
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      };
+
+      const result = await collection.updateOne(filter, update, { upsert: true });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: result.upsertedId
+              ? `New session created for user ${id}, session ${number_session}`
+              : `Q&A added to session ${number_session} for user ${id}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    } finally {
+      await client.close();
+    }
   }
 );
+
 
 
 
