@@ -13,6 +13,7 @@ export default function useProtection() {
       if (!user) {
         router.replace("/sign-in");
       } else {
+    //padiglione D, primo piano ricoveri privati nstanza 110
         setLoading(false);
       }
     });
@@ -20,5 +21,5 @@ export default function useProtection() {
     return () => unsubscribe();
   }, [router]);
 
-  return loading;
+  return  loading ;
 }
