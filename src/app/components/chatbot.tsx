@@ -38,7 +38,7 @@ export default function ChatPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
    const [sessionId, setSessionId] = useState<string | null>(null);
-
+//const [sessionNumber, setSessionNumber] = useState<string | null>(null);
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -67,8 +67,10 @@ export default function ChatPage() {
         setUid(user.uid);
         setSessionToken(token);
 
-        //  Genera una nuova sessione (UUID) ogni volta che entra l’utente
-        setSessionId(uuidv4());
+      const newSessionId = uuidv4();
+      setSessionId(newSessionId);
+      console.log("🟢 Nuova sessione generata:", newSessionId);
+        
       } else {
         setUid(null);
         setSessionToken(null);
@@ -78,6 +80,7 @@ export default function ChatPage() {
 
     return () => unsubscribe();
   }, []);
+  
 
 useEffect(() => {
   if (!uid) return;
@@ -424,7 +427,7 @@ async function mockBotResponse(userInput: string): Promise<string> {
 async function mockBotResponse(
   userInput: string,
   uid: string | null,
-  token: string | null
+  session: string | null
 ): Promise<string> {
   const res = await fetch("/api/chatbot", {
     method: "POST",
@@ -434,7 +437,7 @@ async function mockBotResponse(
     body: JSON.stringify({
       userInput,
       userId: uid,
-      token,
+      session,
     }),
   });
 

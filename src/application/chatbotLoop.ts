@@ -1,7 +1,8 @@
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
-//Questions
+// Questions
 const flow = [
+  { question: "What is your name?" },
   { question: "How old are you?" },
   { question: "Where do you live?" },
   { question: "What do you like?" },
@@ -17,21 +18,29 @@ export const chatbotLoop = async (
   userInput: string,
   userId: string,
   sessionNumber: string
-  
 ): Promise<{ message: string; done: boolean }> => {
   const mcp = await getMcpClient();
 
-  let session = sessions.get(userId);
+  const sessionKey = `${userId}-${sessionNumber}`;
+
+  let session = sessions.get(sessionKey);
   if (!session) {
     session = { step: 0 };
-    sessions.set(userId, session);
+    sessions.set(sessionKey, session);
   }
 
   const currentStep = session.step;
 
-  // if input exists save the answer with current Question
-  if (userInput && currentStep > 0) {
+  // Salva la risposta alla domanda precedente (se NON è la prima)
+  if (currentStep > 0) {
     const prevQuestion = flow[currentStep - 1].question;
+
+    console.log("💾 Salvataggio su Mongo:", {
+      id: userId,
+      number_session: sessionNumber,
+      question: prevQuestion,
+      answer: userInput,
+    });
 
     await mcp.callTool({
       name: "save-session-data",
@@ -44,24 +53,22 @@ export const chatbotLoop = async (
     });
   }
 
-  // if the questions are over
-  /*
+  // Se abbiamo finito le domande
   if (currentStep >= flow.length) {
-    sessions.delete(userId);
+    sessions.delete(sessionKey);
     return {
-      message: "Thanks you have completed the questions, now give me some time to find the best job for you",
+      message:
+        "Thank you! You've completed the questions. I'll now use this info to help you find the best job.",
       done: true,
     };
-  }*/
-
-  // if not go for the next question
-  const nextQuestion = flow[currentStep].question;
-  if( session.step == 3){
-    session.step = 0;
-  }else{
-     session.step += 1;
   }
-  sessions.set(userId, session);
+
+  // Prossima domanda
+  const nextQuestion = flow[currentStep].question;
+
+  // Incremente step SOLO dopo avere usato currentStep
+  session.step += 1;
+  sessions.set(sessionKey, session);
 
   return {
     message: nextQuestion,
