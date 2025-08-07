@@ -10,7 +10,10 @@ import { Manrope } from "next/font/google";
 import { handlePdfUpload } from "@/application/uploadPdf";
 //in order to get user id
 import { auth } from "@/infrastructure/firebase/config";
+//i need uuid for creating a unique session token
+import { v4 as uuidv4 } from "uuid";
 
+//const newSessionId = uuidv4();
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600"], // pesi che ti servono
@@ -31,7 +34,11 @@ export default function ChatPage() {
   const path = searchParams.get("path");
   // Determino colore e nome percorso
   const isSimplified = path === "simplified";
+  // uid and session token
   const [uid, setUid] = useState<string | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+   const [sessionId, setSessionId] = useState<string | null>(null);
+
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -54,16 +61,44 @@ export default function ChatPage() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        const token = await user.getIdToken();
         setUid(user.uid);
+        setSessionToken(token);
+
+        //  Genera una nuova sessione (UUID) ogni volta che entra l’utente
+        setSessionId(uuidv4());
       } else {
         setUid(null);
+        setSessionToken(null);
+        setSessionId(null);
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+useEffect(() => {
+  if (!uid) return;
+
+  const startConversation = async () => {
+    setIsLoading(true);
+
+    try {
+      setMessages([
+        {
+          sender: "bot",
+          text: "Hi, What's your name?",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  startConversation();
+}, [uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +110,9 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const botResponse = await mockBotResponse(input.trim());
+      //const botResponse = await mockBotResponse(input.trim());
+      if (!uid) return;
+      const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
       setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
     } catch {
       setMessages((prev) => [
@@ -375,10 +412,35 @@ export default function ChatPage() {
 }
 
 // Mock bot response
+/*
 async function mockBotResponse(userInput: string): Promise<string> {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(`You said: "${userInput}"`);
     }, 1000);
   });
+}*/
+
+async function mockBotResponse(
+  userInput: string,
+  uid: string | null,
+  token: string | null
+): Promise<string> {
+  const res = await fetch("/api/chatbot", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userInput,
+      userId: uid,
+      token,
+    }),
+  });
+
+  const data = await res.json();
+
+  // Assicurati che data.response sia un oggetto con campo message
+  return data.response?.message ?? "Nessuna risposta";
 }
+
