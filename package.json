@@ -8,9 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "server:build": "tsc",
-    "server:build:watch": "tsc --watch",
+    "build:all": "tsc -p tsconfig.server.json",
+    "server:build:watch": "tsc -p tsconfig.server.json --watch",
     "server:dev": "tsx src/interfaces/server.ts",
+    "server:prod": "node build/interfaces/server.js",
     "server:inspect": "set DANGEROUSLY_OMIT_AUTH=true && npx @modelcontextprotocol/inspector npm run server:dev",
     "client:dev": "tsx src/interfaces/client.ts"
   },
