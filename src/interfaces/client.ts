@@ -10,9 +10,10 @@ import {
   PromptMessage,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js"
-import fs from "fs/promises";
+//import fs from "fs/promises";
 
-const mcp = new Client(
+// Create the MCP client instance
+export const mcp = new Client(
   {
     name: "text-client-video",
     version: "1.0.0",
@@ -21,7 +22,6 @@ const mcp = new Client(
     capabilities: { sampling: {} },
   }
 );
-console.log("You are connected 1");
 const transport = new StdioClientTransport({
   /*command: "node",
   args: ["build/interfaces/server.js"],
@@ -32,12 +32,21 @@ const transport = new StdioClientTransport({
   stderr: "ignore",
 
 });
+let connected = false;
 
+export async function connectMcpOnce() {
+  if (!connected) {
+    await mcp.connect(transport);
+    connected = true;
+    console.log("MCP connected");
+  }
+}
+/*
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY, // or hardcode if testing: "sk-..."
-});
+});*/
 
-
+/*
 async function main() {
   await mcp.connect(transport);
   const [{ tools }, { prompts }, { resources }, { resourceTemplates }] =
@@ -153,6 +162,7 @@ async function handleTool(tool: Tool) {
   });
   console.log(((await res).content as [{ text: string }])[0].text);
 }*/
+/*
 async function handleTool(tool: Tool) {
   const args: Record<string, string> = {};
 
@@ -286,6 +296,6 @@ async function handleServerMessagePrompt(message: PromptMessage) {
 
   return text;
 }
-
-
-main();
+*/
+/*
+main();*/
