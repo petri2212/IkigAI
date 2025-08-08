@@ -2,7 +2,6 @@ import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
 // Questions
 const flow = [
-  { question: "What is your name?" },
   { question: "How old are you?" },
   { question: "Where do you live?" },
   { question: "What do you like?" },
