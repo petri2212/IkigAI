@@ -7,9 +7,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import z from "zod";
 import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { PdfDocument} from "../domain/resume.js";
-import type { User} from "../domain/user.ts";
-import type { Message} from "../domain/message.ts";
+import type { PdfDocument } from "../domain/resume.js";
+import type { User } from "../domain/user.ts";
+import type { Message, SessionDoc, QA} from "../domain/message.ts";
+import type { Collection } from "mongodb";
+import { Session } from "node:inspector/promises";
 
 const server = new McpServer({
   name: "test",
@@ -236,7 +238,7 @@ server.tool(
     openWorldHint: true,
   },
   async ({ id_unique, pdf }) => {
-    const { MongoClient} = await import("mongodb");
+    const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
@@ -305,7 +307,7 @@ server.tool(
     openWorldHint: true,
   },
   async ({ id }) => {
-    const { MongoClient} = await import("mongodb");
+    const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
@@ -325,8 +327,8 @@ server.tool(
           content: [{ type: "text", text: `PDF with ID ${id} don't found.` }],
         };
       }
-      const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept 
-                                                                              // parameters on to string
+      const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept
+      // parameters on to string
 
       // Then convert to base64:
       const base64Pdf = buffer.toString("base64");
@@ -353,7 +355,7 @@ server.tool(
   "save-user-to-mongo",
   "Save user data to MongoDB",
   {
-    id: z.string(),       // unique id of the user
+    id: z.string(), // unique id of the user
     name: z.string(),
     surname: z.string(),
     email: z.string(),
@@ -422,7 +424,7 @@ server.tool(
   "save-user-profiling-mongo",
   "Save user profiling to MongoDB",
   {
-    id: z.string(),       // unique id of the user
+    id: z.string(), // unique id of the user
   },
   {
     title: "Save User profile to MongoDB",
@@ -448,15 +450,15 @@ server.tool(
 //save session data
 server.tool(
   "save-session-data",
-  "Save session question and answer to MongoDB (insert new document)",
+  "Save session question and answer to MongoDB (append or insert)",
   {
-    id: z.string(), 
+    id: z.string(),
     number_session: z.string(),
     question: z.string(),
     answer: z.string(),
   },
   {
-    title: "Save Session Data (Insert)",
+    title: "Save Session Data (Append or Insert)",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
@@ -475,37 +477,66 @@ server.tool(
     try {
       await client.connect();
       const db = client.db("Main");
-      const collection = db.collection("Sessions");
 
-      const doc = {
-        id,
-        number_session,
-        q_and_a: [
+      const collection = db.collection<SessionDoc>("Sessions");
+      const existingDoc = await collection.findOne({ id, number_session });
+      console.log("Cosa ce in existing coso: ", existingDoc);
+
+      if (existingDoc) {
+        // Append q_and_a
+        await collection.updateOne(
+          { id, number_session },
           {
-            question,
-            answer,
-            timestamp: new Date(),
-          },
-        ],
-        createdAt: new Date(),
-      };
+            $push: {
+              q_and_a: {
+                question,
+                answer,
+                timestamp: new Date(),
+              } as QA,
+            },
+          }
+        );
 
-      const result = await collection.insertOne(doc);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Q&A aggiunta alla sessione ${number_session} dell'utente ${id}`,
+            },
+          ],
+        };
+      } else {
+        // Crea nuovo documento
+        const newDoc: SessionDoc = {
+          id,
+          number_session,
+          createdAt: new Date(),
+          q_and_a: [
+            {
+              question,
+              answer,
+              timestamp: new Date(),
+            },
+          ],
+        };
 
+        const insertResult = await collection.insertOne(newDoc);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Nuova sessione creata con _id: ${insertResult.insertedId}`,
+            },
+          ],
+        };
+      }
+    } catch (error: any) {
       return {
         content: [
           {
             type: "text",
-            text: `Nuovo documento inserito con _id: ${result.insertedId}`,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error: ${error.message || "Unknown error"}`,
           },
         ],
       };
@@ -569,7 +600,9 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Session ${number_session} for user "${id}":\n\n${formattedQandA || "No Q&A entries found."}`,
+            text: `Session ${number_session} for user "${id}":\n\n${
+              formattedQandA || "No Q&A entries found."
+            }`,
           },
         ],
       };
@@ -578,7 +611,9 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error retrieving session: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error retrieving session: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
           },
         ],
       };
@@ -587,8 +622,6 @@ server.tool(
     }
   }
 );
-
-
 
 server.prompt(
   "generate-fake-user",
