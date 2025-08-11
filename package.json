@@ -24,7 +24,7 @@
     "firebase": "^12.0.0",
     "mongodb": "^6.18.0",
     "next": "^15.4.5",
-    "openai": "^4.103.0",
+    "openai": "^4.104.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-firebase-hooks": "^5.1.1",

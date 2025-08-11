@@ -1,4 +1,5 @@
-/*import { getMcpClient } from "@/infrastructure/mcp/McpClient";
+/*
+import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
 // Questions
 const flow = [
@@ -76,7 +77,7 @@ export const chatbotLoop = async (
 };
 */
 // chatbot.ts
-
+/*
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
 const flow = [
@@ -175,5 +176,149 @@ export async function chatbotLoop(
   return {
     message: nextQuestion,
     done: false,
+  };
+}
+*/
+
+import { getMcpClient } from "@/infrastructure/mcp/McpClient";
+import { OpenAI } from "openai";
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
+
+type SessionState = {
+  step: number;
+  answers: string[];
+  flow: { question: string }[];
+};
+
+const sessions = new Map<string, SessionState>();
+
+// Rileva domanda utente
+function isUserAskingQuestion(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+  const questionWords = [
+    "what", "why", "how", "when", "where", "who",
+    "che", "come", "perché", "quando", "dove", "chi", "cosa"
+  ];
+  if (trimmed.endsWith("?")) return true;
+  const lower = trimmed.toLowerCase();
+  for (const w of questionWords) {
+    if (lower.startsWith(w + " ") || lower.startsWith(w + "?")) return true;
+  }
+  return false;
+}
+
+// Genera 4 domande dall'AI su argomenti dati
+async function generateQuestions(topics: string[]): Promise<{ question: string }[]> {
+  const prompt = `Genera 4 domande pertinenti per un'intervista su questi argomenti: ${topics.join(
+    ", "
+  )}. Le domande devono essere brevi e chiare. Rispondi solo con le domande, separate da linee nuove.`;
+
+  const completion = await openai.completions.create({
+    model: "text-davinci-003",
+    prompt,
+    max_tokens: 150,
+    temperature: 0.7,
+  });
+
+  const text = completion.choices[0].text ?? "";
+  // Divido per linea e filtro
+  const questions = text
+    .split("\n")
+    .map((q) => q.trim())
+    .filter((q) => q.length > 0)
+    .slice(0, 4)
+    .map((q) => ({ question: q }));
+
+  return questions;
+}
+
+// Risponde a domande esterne con AI
+async function answerExternalQuestion(question: string): Promise<string> {
+  const prompt = `Sei un assistente virtuale esperto. Rispondi brevemente a questa domanda:\n${question}`;
+
+  const completion = await openai.completions.create({
+    model: "text-davinci-003",
+    prompt,
+    max_tokens: 100,
+    temperature: 0.6,
+  });
+
+  return completion.choices[0].text?.trim() ?? "Non so come rispondere a questa domanda.";
+}
+
+export async function chatbotLoop(
+  userInput: string,
+  userId: string,
+  sessionNumber: string,
+  topics: string[] = ["programmazione"] // argomenti di default
+): Promise<{ message: string; done: boolean }> {
+  const mcp = await getMcpClient();
+  const sessionKey = `${userId}-${sessionNumber}`;
+
+  let session = sessions.get(sessionKey);
+
+  // Se nuova sessione, genero le domande dall'AI
+  if (!session) {
+    const generatedQuestions = await generateQuestions(topics);
+    session = { step: 0, answers: [], flow: generatedQuestions };
+    sessions.set(sessionKey, session);
+  }
+
+  // Se finite le domande
+  if (session.step >= session.flow.length) {
+    sessions.delete(sessionKey);
+    return {
+      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
+      done: true,
+    };
+  }
+
+  // Se l'utente fa domanda esterna
+  if (isUserAskingQuestion(userInput)) {
+    const aiAnswer = await answerExternalQuestion(userInput);
+    return {
+      message: aiAnswer,
+      done: false,
+    };
+  }
+
+  // Salvo risposta precedente in MCP
+  const prevQuestion = session.flow[session.step].question;
+
+  console.log("💾 Salvataggio su Mongo:", {
+    id: userId,
+    number_session: sessionNumber,
+    question: prevQuestion,
+    answer: userInput,
+  });
+
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: prevQuestion,
+        answer: userInput,
+      },
+    });
+  } catch (err) {
+    console.error("Errore salvataggio dati MCP:", err);
+  }
+
+  session.answers.push(userInput);
+
+  // Prossima domanda
+  session.step += 1;
+  sessions.set(sessionKey, session);
+
+  return {
+    message: session.flow[session.step]?.question ?? "Ottimo, hai finito le domande ora ti do la conclusione.",
+    done: session.step >= session.flow.length,
   };
 }
