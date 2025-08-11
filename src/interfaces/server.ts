@@ -7,7 +7,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import z from "zod";
 import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { PdfDocument} from "../domain/pdf.ts";
+import type { PdfDocument} from "../domain/resume.js";
 import type { User} from "../domain/user.ts";
 import type { Message} from "../domain/message.ts";
 
@@ -448,15 +448,15 @@ server.tool(
 //save session data
 server.tool(
   "save-session-data",
-  "Save session question and answer to MongoDB (append to array)",
+  "Save session question and answer to MongoDB (insert new document)",
   {
-    id: z.string(),
+    id: z.string(), 
     number_session: z.string(),
     question: z.string(),
     answer: z.string(),
   },
   {
-    title: "Save Session Data (with Q&A array)",
+    title: "Save Session Data (Insert)",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
@@ -475,31 +475,28 @@ server.tool(
     try {
       await client.connect();
       const db = client.db("Main");
-      const collection = db.collection<Message>("Sessions");
+      const collection = db.collection("Sessions");
 
-      const filter = { _id: id, number_session };
-      const update = {
-        $push: {
-          q_and_a: {
+      const doc = {
+        id,
+        number_session,
+        q_and_a: [
+          {
             question,
             answer,
             timestamp: new Date(),
           },
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
+        ],
+        createdAt: new Date(),
       };
 
-      const result = await collection.updateOne(filter, update, { upsert: true });
+      const result = await collection.insertOne(doc);
 
       return {
         content: [
           {
             type: "text",
-            text: result.upsertedId
-              ? `New session created for user ${id}, session ${number_session}`
-              : `Q&A added to session ${number_session} for user ${id}`,
+            text: `Nuovo documento inserito con _id: ${result.insertedId}`,
           },
         ],
       };
@@ -517,6 +514,7 @@ server.tool(
     }
   }
 );
+
 //get session data
 server.tool(
   "get-session-data",
