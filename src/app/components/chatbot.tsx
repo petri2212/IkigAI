@@ -81,7 +81,7 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, []);
   
-
+/*
 useEffect(() => {
   if (!uid) return;
 
@@ -101,7 +101,7 @@ useEffect(() => {
   };
 
   startConversation();
-}, [uid]);
+}, [uid]);*/
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
