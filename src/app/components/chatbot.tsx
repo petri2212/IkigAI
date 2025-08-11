@@ -37,8 +37,8 @@ export default function ChatPage() {
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-   const [sessionId, setSessionId] = useState<string | null>(null);
-//const [sessionNumber, setSessionNumber] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  //const [sessionNumber, setSessionNumber] = useState<string | null>(null);
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -54,6 +54,11 @@ export default function ChatPage() {
     { id: "2", title: "Chat with IkigAI 2" },
   ]);
 
+  //FLUSSO
+  const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
+    "askCV"
+  );
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,10 +72,9 @@ export default function ChatPage() {
         setUid(user.uid);
         setSessionToken(token);
 
-      const newSessionId = uuidv4();
-      setSessionId(newSessionId);
-      console.log("🟢 Nuova sessione generata:", newSessionId);
-        
+        const newSessionId = uuidv4();
+        setSessionId(newSessionId);
+        console.log("🟢 Nuova sessione generata:", newSessionId);
       } else {
         setUid(null);
         setSessionToken(null);
@@ -80,8 +84,20 @@ export default function ChatPage() {
 
     return () => unsubscribe();
   }, []);
-  
-/*
+
+  useEffect(() => {
+    if (!uid) return;
+
+    setMessages([
+      {
+        sender: "bot",
+        text: "Hi! Do you have a CV to upload? You can upload a PDF or just type your answer here.",
+      },
+    ]);
+    setStage("waitingForCV");
+  }, [uid]);
+
+  /*
 useEffect(() => {
   if (!uid) return;
 
@@ -102,7 +118,7 @@ useEffect(() => {
 
   startConversation();
 }, [uid]);*/
-
+  /*
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -117,6 +133,40 @@ useEffect(() => {
       if (!uid) return;
       const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
       setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { sender: "bot", text: "Something went wrong. Please try again." },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };*/
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const userMessage: Message = { sender: "user", text: input.trim() };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      if (!uid) return;
+
+      if (stage === "waitingForCV") {
+        // L'utente ha risposto a domanda CV in chat
+        // Qui puoi decidere di ignorare la risposta e andare avanti
+        setStage("chatting");
+
+        // Risposta bot che va avanti con domande AI
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
+        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
+      } else {
+        // Stadio chatting normale, continua con il mockBotResponse
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
+        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -337,6 +387,7 @@ useEffect(() => {
                 type="file"
                 accept="application/pdf"
                 className="hidden"
+                /*
                 onChange={async (e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];
@@ -362,6 +413,59 @@ useEffect(() => {
                       }
                     } else {
                       console.error("User ID is null. Cannot upload PDF.");
+                    }
+                  }
+                }}*/
+                onChange={async (e) => {
+                  if (e.target.files?.[0]) {
+                    const file = e.target.files[0];
+                    if (uid && sessionId) {
+                      try {
+                        const result = await handlePdfUpload(file, uid);
+                        if (result.success) {
+                          setMessages((prev) => [
+                            ...prev,
+                            { sender: "bot", text: "The PDF is uploaded." },
+                          ]);
+                          setStage("chatting"); // Avanza al prossimo step
+                          setIsLoading(true);
+                          try {
+                            const botResponse = await mockBotResponse(
+                              "",
+                              uid,
+                              sessionId
+                            );
+                            setMessages((prev) => [
+                              ...prev,
+                              { sender: "bot", text: botResponse },
+                            ]);
+                          } catch {
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                sender: "bot",
+                                text: "Something went wrong. Please try again.",
+                              },
+                            ]);
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        } else {
+                          setMessages((prev) => [
+                            ...prev,
+                            { sender: "bot", text: "Failed to upload PDF." },
+                          ]);
+                        }
+                      } catch (err) {
+                        setMessages((prev) => [
+                          ...prev,
+                          { sender: "bot", text: "Error uploading PDF." },
+                        ]);
+                      }
+                    } else {
+                      console.error(
+                        "User ID or session ID is null. Cannot upload PDF."
+                      );
                     }
                   }
                 }}
@@ -446,4 +550,3 @@ async function mockBotResponse(
   // Assicurati che data.response sia un oggetto con campo message
   return data.response?.message ?? "Nessuna risposta";
 }
-
