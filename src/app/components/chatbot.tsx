@@ -12,6 +12,10 @@ import { handlePdfUpload } from "@/application/uploadPdf";
 import { auth } from "@/infrastructure/firebase/config";
 //i need uuid for creating a unique session token
 import { v4 as uuidv4 } from "uuid";
+import ReactMarkdown from "react-markdown";
+import { TbNewSection } from "react-icons/tb";
+import { MdPictureAsPdf } from "react-icons/md";
+import { VscNewFile } from "react-icons/vsc";
 
 //const newSessionId = uuidv4();
 const manrope = Manrope({
@@ -42,12 +46,6 @@ export default function ChatPage() {
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Messaggi chat
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hovered, setHovered] = useState(false);
-
   // Chat history dummy
   const [chatHistory] = useState<ChatHistoryItem[]>([
     { id: "1", title: "Chat with IkigAI 1" },
@@ -60,6 +58,12 @@ export default function ChatPage() {
   );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Messaggi chat
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,32 +100,9 @@ export default function ChatPage() {
     ]);
     setStage("waitingForCV");
   }, [uid]);
-
-  /*
-useEffect(() => {
-  if (!uid) return;
-
-  const startConversation = async () => {
-    setIsLoading(true);
-
-    try {
-      setMessages([
-        {
-          sender: "bot",
-          text: "Hi, What's your name?",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  startConversation();
-}, [uid]);*/
-  /*
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+/*
+  useEffect(() => {
+    if (!hasStarted) setHasStarted(true); // <-- questo
 
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
@@ -141,10 +122,13 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
-  };*/
+  });
+*/
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+
+    if (!hasStarted) setHasStarted(true); // <-- questo
 
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
@@ -188,7 +172,7 @@ useEffect(() => {
     ? "var(--color-blue-light)"
     : "var(--color-green-light)";
   const accentHover = isSimplified ? "#1e3a8a" : "#16a34a"; // blu-700 o green-600
-  const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff"; // grigio placeholder
+  const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff";
   const lightBG = isSimplified ? "#1643c13a" : "#47d02139";
   const baseColor = "#6b7280";
   const imageSrc = isSimplified
@@ -204,7 +188,7 @@ useEffect(() => {
         }`}
       >
         {/* Top bar: logo + toggle */}
-        <div className="flex items-center justify-between px-4 h-16 border-gray-200 ">
+        <div className="flex items-center justify-between px-2 h-16 border-gray-200 ">
           {sidebarOpen ? (
             <h2 className="text-xl font-bold">
               <Link
@@ -230,7 +214,7 @@ useEffect(() => {
             aria-label="Toggle sidebar"
           >
             {sidebarOpen ? (
-              <HiX className="h-5 w-5" />
+              <HiX className="h-7 w-7 text-stone-600" />
             ) : (
               <Image
                 src="/images/logo3.png"
@@ -244,13 +228,22 @@ useEffect(() => {
         </div>
 
         {/* New Chat button */}
-        {sidebarOpen && (
+        {sidebarOpen ? (
           <button
             onClick={handleNewChat}
-            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 text-lg font-medium"
+            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
             style={{ color: accentColor }}
           >
-            <FaPlus /> New Chat
+            <VscNewFile className="text-2xl" />
+            New Chat
+          </button>
+        ) : (
+          <button
+            onClick={handleNewChat}
+            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
+            style={{ color: accentColor }}
+          >
+            <VscNewFile className="text-2xl" />
           </button>
         )}
 
@@ -259,24 +252,43 @@ useEffect(() => {
           {chatHistory.length === 0 && sidebarOpen && (
             <p className="text-gray-400 italic px-2 mt-4">No chat history</p>
           )}
-          {chatHistory.map((chat) => (
-            <button
-              key={chat.id}
-              className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition"
-              style={{ color: accentColor }}
-              onClick={() =>
-                alert(`Switch to chat ${chat.title} (implement later)`)
-              }
-            >
-              {sidebarOpen ? chat.title : chat.title.charAt(0)}
-            </button>
-          ))}
+          {sidebarOpen ? (
+            <p className="text-gray-400 italic px-3 mt-20">Chat</p>
+          ) : (
+            <p></p>
+          )}
+          {chatHistory.map(
+            (chat) =>
+              sidebarOpen && (
+                <button
+                  key={chat.id}
+                  className="w-full text-left px-1 py-2 rounded hover:bg-gray-100 transition-colors duration-100 flex items-center gap-2"
+                  style={{ color: accentColor }}
+                  onClick={() =>
+                    alert(`Switch to chat ${chat.title} (implement later)`)
+                  }
+                >
+                  {/* Icona o lettera sempre visibile */}
+
+                  {/* Testo completo, sempre presente ma con transizione */}
+                  <span
+                    className={`overflow-hidden whitespace-nowrap ease-in-out ${
+                      sidebarOpen
+                        ? "opacity-100 max-w-full ml-2"
+                        : "opacity-0 max-w-0"
+                    }`}
+                  >
+                    {chat.title}
+                  </span>
+                </button>
+              )
+          )}
         </nav>
       </aside>
 
       {/* Main chat area */}
       <main
-        className={`flex flex-col flex-1 bg-white relative mb-100 ${manrope.className}`}
+        className={`flex flex-col flex-1 ${manrope.className}`}
         style={{
           backgroundImage: `url('${imageSrc}')`,
           backgroundSize: "cover",
@@ -285,14 +297,15 @@ useEffect(() => {
           minHeight: "100vh",
         }}
       >
-        {/* Titolo */}
-        <div className="flex items-center justify-center gap-4 py-4 backdrop-blur-sm shadow-sm z-1000">
-          <h1 className="text-2xl font-semibold text-gray-800 text-center">
+        {/* Header titolo + badge */}
+        <div className="flex items-center justify-between px-8 py-4 shadow-sm backdrop-blur-sm z-50">
+          <h1 className="text-2xl font-semibold text-gray-800">
             Chat with IkigAI
           </h1>
+
           {path && (
             <span
-              className="px-3 py-1 rounded-full text-sm font-semibold select-none"
+              className="px-4 py-1 rounded-full text-sm font-medium select-none whitespace-nowrap"
               style={{
                 backgroundColor: accentBg,
                 color: accentColor,
@@ -304,67 +317,83 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Messaggi scrollabili fino in alto */}
-        <div className="flex-1 overflow-y-auto px-4 pb-20">
-          <div className="max-w-[60%] mx-auto space-y-4">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex items-start mt-10 gap-3 ${
-                  msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-                }`}
-              >
-                {/* Icona all'inizio del messaggio */}
-                <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                  {msg.sender === "bot" ? (
-                    <Image
-                      src="/images/logo3.png"
-                      alt="IkigAI Logo"
-                      width={24}
-                      height={20}
-                      priority
-                    />
-                  ) : (
-                    <FaUser size={16} />
-                  )}
-                </div>
-
-                {/* Testo del messaggio */}
+        {/* Messaggi scrollabili fino in alto o centrati */}
+        {hasStarted && (
+          <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300">
+            <div className="max-w-[60%] mx-auto space-y-4">
+              {messages.map((msg, idx) => (
                 <div
-                  className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
-                  style={{
-                    backgroundColor:
-                      msg.sender === "user"
-                        ? "rgba(46, 105, 160, 0.15)"
-                        : "rgba(255, 255, 255, 0.4)",
-                    color: msg.sender === "user" ? "#1e3a8a" : "#111827",
-                    maxWidth: "75%",
-                  }}
+                  key={idx}
+                  className={`flex items-start mt-10 gap-3 ${
+                    msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
                 >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
+                  {/* Icona all'inizio del messaggio */}
+                  <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                    {msg.sender === "bot" ? (
+                      <Image
+                        src="/images/logo3.png"
+                        alt="IkigAI Logo"
+                        width={24}
+                        height={20}
+                        priority
+                      />
+                    ) : (
+                      <FaUser size={16} />
+                    )}
+                  </div>
 
-            {isLoading && (
-              <div className="flex items-start gap-3 animate-pulse">
-                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                  <FaRobot size={16} />
+                  {/* Testo del messaggio */}
+                  <div
+                    className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
+                    style={{
+                      backgroundColor:
+                        msg.sender === "user"
+                          ? lightBG
+                          : "rgba(255, 255, 255, 0.4)",
+                      color: "#111827",
+                      maxWidth: "75%",
+                    }}
+                  >
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
-                <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
-                  Typing...
-                </div>
-              </div>
-            )}
+              ))}
 
-            <div ref={messagesEndRef} />
+              {isLoading && (
+                <div className="flex items-start gap-3 animate-pulse">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                    <FaRobot size={16} />
+                  </div>
+                  <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
+                    Typing...
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
+        )}
+
+        {!hasStarted && (
+          <div className="flex-1 flex items-start justify-center transition-all duration-700">
+            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky top-[40%]">
+              <h2 className="text-4xl font-semibold mb-4">Welcome to IkigAI</h2>
+            </div>
+          </div>
+        )}
 
         {/* Input centrato e fisso */}
         <form
           onSubmit={handleSubmit}
-          className="sticky bottom-10 mx-auto flex items-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 "
+          className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
+                    ${
+                      hasStarted
+                        ? "sticky bottom-10"
+                        : "sticky bottom-[35%] translate-y"
+                    }
+                    `}
           style={{
             borderColor: accentColor,
             minHeight: "60px",
@@ -377,7 +406,7 @@ useEffect(() => {
               onMouseEnter={() => setHovered(true)}
               onMouseLeave={() => setHovered(false)}
             >
-              <FaPlus
+              <MdPictureAsPdf
                 style={{
                   color: hovered ? accentHover : baseColor,
                   fontSize: "1.5rem",
@@ -401,7 +430,11 @@ useEffect(() => {
                           setStage("chatting"); // Avanza al prossimo step
                           setIsLoading(true);
                           try {
-                            const botResponse = await mockBotResponse("__INIT__", uid, sessionId);
+                            const botResponse = await mockBotResponse(
+                              "__INIT__",
+                              uid,
+                              sessionId
+                            );
                             setMessages((prev) => [
                               ...prev,
                               { sender: "bot", text: botResponse },
