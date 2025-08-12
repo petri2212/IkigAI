@@ -16,7 +16,7 @@ import ReactMarkdown from "react-markdown";
 import { TbNewSection } from "react-icons/tb";
 import { MdPictureAsPdf } from "react-icons/md";
 import { VscNewFile } from "react-icons/vsc";
-
+import { Typewriter } from 'react-simple-typewriter'
 //const newSessionId = uuidv4();
 const manrope = Manrope({
   subsets: ["latin"],
@@ -45,6 +45,7 @@ export default function ChatPage() {
   //const [sessionNumber, setSessionNumber] = useState<string | null>(null);
   // Sidebar aperta/chiusa
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
 
   // Chat history dummy
   const [chatHistory] = useState<ChatHistoryItem[]>([
@@ -92,43 +93,62 @@ export default function ChatPage() {
   useEffect(() => {
     if (!uid) return;
 
-    setMessages([
-      {
-        sender: "bot",
-        text: "Hi! Do you have a CV to upload? You can upload a PDF or just type your answer here.",
-      },
-    ]);
-    setStage("waitingForCV");
-  }, [uid]);
-/*
-  useEffect(() => {
-    if (!hasStarted) setHasStarted(true); // <-- questo
-
-    const userMessage: Message = { sender: "user", text: input.trim() };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      //const botResponse = await mockBotResponse(input.trim());
-      if (!uid) return;
-      const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
-      setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: "Something went wrong. Please try again." },
+    const timer = setTimeout(() => {
+      setMessages([
+        {
+          sender: "bot",
+          text: "Hi! Do you have a CV to upload? You can upload a PDF or just type your answer here.",
+        },
       ]);
-    } finally {
-      setIsLoading(false);
+      setStage("waitingForCV");
+    }, 3100);
+
+    return () => clearTimeout(timer);
+  }, [uid]);
+
+
+  useEffect(() => {
+    if (!hasStarted) {
+      const timer0 = setTimeout(() => {
+        setFadeOut(true);
+      }, 2500);
+      const timer1 = setTimeout(() => {
+        setHasStarted(true);
+      }, 3000);
+
+      return () => {
+        clearTimeout(timer0);
+        clearTimeout(timer1);
+      };
     }
-  });
-*/
+  }, [hasStarted]);
+  /*
+    useEffect(() => {
+      if (!hasStarted) setHasStarted(true); // <-- questo
+  
+      const userMessage: Message = { sender: "user", text: input.trim() };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setIsLoading(true);
+  
+      try {
+        //const botResponse = await mockBotResponse(input.trim());
+        if (!uid) return;
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
+        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: "Something went wrong. Please try again." },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+  */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-
-    if (!hasStarted) setHasStarted(true); // <-- questo
 
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
@@ -183,9 +203,8 @@ export default function ChatPage() {
     <div className="flex h-screen bg-blue-200">
       {/* Sidebar */}
       <aside
-        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${
-          sidebarOpen ? "w-72" : "w-16"
-        }`}
+        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${sidebarOpen ? "w-72" : "w-16"
+          }`}
       >
         {/* Top bar: logo + toggle */}
         <div className="flex items-center justify-between px-2 h-16 border-gray-200 ">
@@ -262,24 +281,39 @@ export default function ChatPage() {
               sidebarOpen && (
                 <button
                   key={chat.id}
-                  className="w-full text-left px-1 py-2 rounded hover:bg-gray-100 transition-colors duration-100 flex items-center gap-2"
+                  className="w-full text-left px-1 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-100 flex items-center gap-4"
                   style={{ color: accentColor }}
                   onClick={() =>
                     alert(`Switch to chat ${chat.title} (implement later)`)
                   }
                 >
-                  {/* Icona o lettera sempre visibile */}
 
                   {/* Testo completo, sempre presente ma con transizione */}
-                  <span
-                    className={`overflow-hidden whitespace-nowrap ease-in-out ${
-                      sidebarOpen
+                  <div className="flex gap-27">
+                    <span
+                      className={`overflow-hidden whitespace-nowrap ease-in-out ${sidebarOpen
                         ? "opacity-100 max-w-full ml-2"
                         : "opacity-0 max-w-0"
-                    }`}
-                  >
-                    {chat.title}
-                  </span>
+                        }`}
+                    >
+                      {chat.title}
+                    </span>
+                    {/* Pallini, colore da modificare in base all tipo di */}
+                    <span>
+                      {path && (
+                        <span
+                          className="inline-block rounded-full"
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: accentBg,
+                            border: `1px solid ${accentColor}`,
+                          }}
+                        />
+                      )}
+                    </span>
+                  </div>
+
                 </button>
               )
           )}
@@ -324,9 +358,8 @@ export default function ChatPage() {
               {messages.map((msg, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-start mt-10 gap-3 ${
-                    msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-                  }`}
+                  className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                    }`}
                 >
                   {/* Icona all'inizio del messaggio */}
                   <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
@@ -363,7 +396,13 @@ export default function ChatPage() {
               {isLoading && (
                 <div className="flex items-start gap-3 animate-pulse">
                   <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                    <FaRobot size={16} />
+                    <Image
+                      src="/images/logo3.png"
+                      alt="IkigAI Logo"
+                      width={16}
+                      height={16}
+                      priority
+                    />
                   </div>
                   <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
                     Typing...
@@ -377,9 +416,16 @@ export default function ChatPage() {
         )}
 
         {!hasStarted && (
-          <div className="flex-1 flex items-start justify-center transition-all duration-700">
-            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky top-[40%]">
-              <h2 className="text-4xl font-semibold mb-4">Welcome to IkigAI</h2>
+          <div
+            className={`flex-1 flex items-start justify-center transition-opacity duration-400`}
+            style={{ opacity: fadeOut ? 0 : 1 }}
+          >
+            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky top-[40%] text-4xl font-semibold mb-4 ">
+              <Typewriter
+                words={['Welcome to IkigAI']}
+                loop={true}
+                typeSpeed={100}
+              />
             </div>
           </div>
         )}
@@ -388,11 +434,10 @@ export default function ChatPage() {
         <form
           onSubmit={handleSubmit}
           className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
-                    ${
-                      hasStarted
-                        ? "sticky bottom-10"
-                        : "sticky bottom-[35%] translate-y"
-                    }
+                    ${hasStarted
+              ? "sticky bottom-10"
+              : "sticky bottom-[35%] translate-y"
+            }
                     `}
           style={{
             borderColor: accentColor,
