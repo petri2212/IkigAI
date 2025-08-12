@@ -387,35 +387,6 @@ useEffect(() => {
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                /*
-                onChange={async (e) => {
-                  if (e.target.files?.[0]) {
-                    const file = e.target.files[0];
-                    if (uid) {
-                      try {
-                        const result = await handlePdfUpload(file, uid);
-                        if (result.success) {
-                          setMessages((prev) => [
-                            ...prev,
-                            { sender: "bot", text: "The PDF is uploaded." },
-                          ]);
-                        } else {
-                          setMessages((prev) => [
-                            ...prev,
-                            { sender: "bot", text: "Failed to upload PDF." },
-                          ]);
-                        }
-                      } catch (err) {
-                        setMessages((prev) => [
-                          ...prev,
-                          { sender: "bot", text: "Error uploading PDF." },
-                        ]);
-                      }
-                    } else {
-                      console.error("User ID is null. Cannot upload PDF.");
-                    }
-                  }
-                }}*/
                 onChange={async (e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];

@@ -84,7 +84,7 @@ export async function chatbotLoop(
   userInput: string,
   userId: string,
   sessionNumber: string,
-  topics: string[] = ["programmazione"] // argomenti di default
+  topics: string[] = ["ingegenria meccanica"] // argomenti di default
 ): Promise<{ message: string; done: boolean }> {
   const mcp = await getMcpClient();
   const sessionKey = `${userId}-${sessionNumber}`;
