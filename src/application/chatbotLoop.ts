@@ -34,9 +34,10 @@ function isUserAskingQuestion(input: string): boolean {
 
 // Genera 4 domande dall'AI su argomenti dati
 async function generateQuestions(topics: string[]): Promise<{ question: string }[]> {
-  const prompt = `Genera 4 domande pertinenti per un'intervista su questi argomenti: ${topics.join(
+  const prompt = `Genera 4 domande pertinenti per un'intervista sui seguenti argomenti: ${topics.join(
     ", "
-  )}. Le domande devono essere brevi e chiare. Rispondi solo con le domande, separate da linee nuove.`;
+  )}.
+Le domande devono essere brevi, chiare e in italiano. Rispondi solo con le domande, ciascuna su una nuova riga, senza numeri, senza punti elenco e senza separatori.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
@@ -49,11 +50,12 @@ async function generateQuestions(topics: string[]): Promise<{ question: string }
   });
 
   const text = completion.choices[0].message.content ?? "";
-  // Divido per linea e filtro
+
   const questions = text
     .split("\n")
     .map((q) => q.trim())
-    .filter((q) => q.length > 0)
+    .filter((q) => q.length > 0 && !/^[-–—]+$/.test(q)) // elimina linee di soli trattini
+    .map((q) => q.replace(/^[-•\d.]+\s*/, "")) // rimuove bullet/numero iniziale
     .slice(0, 4)
     .map((q) => ({ question: q }));
 
@@ -89,11 +91,19 @@ export async function chatbotLoop(
 
   let session = sessions.get(sessionKey);
 
-  // Se nuova sessione, genero le domande dall'AI
+  // Se nuova sessione, genera domande dall'AI
   if (!session) {
     const generatedQuestions = await generateQuestions(topics);
     session = { step: 0, answers: [], flow: generatedQuestions };
     sessions.set(sessionKey, session);
+  }
+
+  // Se chiamata di inizializzazione (__INIT__) → restituisci la prima domanda senza salvare
+  if (userInput === "__INIT__") {
+    return {
+      message: session.flow[0].question,
+      done: false,
+    };
   }
 
   // Se finite le domande
@@ -145,7 +155,9 @@ export async function chatbotLoop(
   sessions.set(sessionKey, session);
 
   return {
-    message: session.flow[session.step]?.question ?? "Ottimo, hai finito le domande ora ti do la conclusione.",
+    message:
+      session.flow[session.step]?.question ??
+      "Ottimo, hai finito le domande ora ti do la conclusione.",
     done: session.step >= session.flow.length,
   };
 }
