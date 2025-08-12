@@ -160,7 +160,7 @@ useEffect(() => {
         setStage("chatting");
 
         // Risposta bot che va avanti con domande AI
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
+        const botResponse = await mockBotResponse("__INIT__", uid, sessionId);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
         // Stadio chatting normale, continua con il mockBotResponse
@@ -430,11 +430,7 @@ useEffect(() => {
                           setStage("chatting"); // Avanza al prossimo step
                           setIsLoading(true);
                           try {
-                            const botResponse = await mockBotResponse(
-                              "",
-                              uid,
-                              sessionId
-                            );
+                            const botResponse = await mockBotResponse("__INIT__", uid, sessionId);
                             setMessages((prev) => [
                               ...prev,
                               { sender: "bot", text: botResponse },
