@@ -625,6 +625,90 @@ server.tool(
   }
 );
 
+// get all user sessions
+server.tool(
+  "get-all-user-sessions",
+  "Retrieve all Q&A sessions for a specific user",
+  {
+    id: z.string(), // userId
+  },
+  {
+    title: "Get All User Sessions",
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
+  async ({ id }) => {
+    const { MongoClient } = await import("mongodb");
+
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGODB_URI environment variable is not set");
+    }
+
+    const client = new MongoClient(mongoUri);
+
+    try {
+      await client.connect();
+      const db = client.db("Main");
+      const collection = db.collection<Message>("Sessions");
+
+      // Trova tutte le sessioni per lo user
+      const sessions = await collection
+        .find({ _id: id })
+        .sort({ number_session: 1 }) // ordina per numero sessione
+        .toArray();
+
+      if (!sessions.length) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No sessions found for user "${id}".`,
+            },
+          ],
+        };
+      }
+
+      // Formatto tutte le sessioni
+      const formatted = sessions
+        .map((session) => {
+          const qAndA =
+            session.q_and_a?.map(
+              (entry: any, index: number) =>
+                `${index + 1}. Q: ${entry.question}\n   A: ${entry.answer}`
+            ).join("\n\n") || "No Q&A entries found.";
+
+          return `Session ${session.number_session}:\n${qAndA}`;
+        })
+        .join("\n\n----------------\n\n");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `All sessions for user "${id}":\n\n${formatted}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error retrieving sessions: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+      };
+    } finally {
+      await client.close();
+    }
+  }
+);
+
 server.prompt(
   "generate-fake-user",
   "Generate a fake user based on a given name",
