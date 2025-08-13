@@ -20,10 +20,12 @@ import { HiX } from "react-icons/hi";
 // Typing animation
 import { Typewriter } from 'react-simple-typewriter'
 import path from "node:path";
+import { sendFirstBotMessage } from '@/app/components/firstMessage'
+import createNewSession from "./pathcard";
 
 const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["400", "500", "600"], 
+  weight: ["400", "500", "600"],
 });
 
 type Message = {
@@ -34,7 +36,7 @@ type Message = {
 type ChatHistoryItem = {
   id: string;
   title: string;
-};
+}
 
 
 export default function ChatPage() {
@@ -54,8 +56,7 @@ export default function ChatPage() {
 
   // Chat history dummy
   const [chatHistory] = useState<ChatHistoryItem[]>([
-    { id: "1", title: "Chat with IkigAI 1" },
-    { id: "2", title: "Chat with IkigAI 2" },
+    { id: "ciao", title: "hello" }
   ]);
   // Flow
   const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
@@ -69,6 +70,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [isFirst, setIsFirst] = useState(true);
 
   // Main colors based on path
   const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
@@ -95,7 +97,7 @@ export default function ChatPage() {
 
         const newSessionId = uuidv4();
         setSessionId(newSessionId);
-        console.log("🟢 Nuova sessione generata:", newSessionId);
+        console.log("Nuova sessione generata:", newSessionId);
       } else {
         setUid(null);
         setSessionToken(null);
@@ -109,23 +111,14 @@ export default function ChatPage() {
   // First Bot Message
   useEffect(() => {
     if (!uid) return;
-
-    const timer = setTimeout(() => {
-      setMessages([
-        {
-          sender: "bot",
-          text: "Hi! Do you have a CV to upload? You can upload a PDF or just type your answer here.",
-        },
-      ]);
-      setStage("waitingForCV");
-    }, 3100);
-
-    return () => clearTimeout(timer);
+    const cleanup = sendFirstBotMessage(setMessages, setStage, 3100);
+    return cleanup;
   }, [uid]);
 
   // Animation Effects
   useEffect(() => {
-    if (!hasStarted) {
+    if (!hasStarted && isFirst) {
+      setIsFirst(false);
       const timer0 = setTimeout(() => {
         setFadeOut(true);
       }, 2500);
@@ -139,6 +132,24 @@ export default function ChatPage() {
       };
     }
   }, [hasStarted]);
+
+  useEffect(() => {
+    if (!hasStarted && !isFirst) {
+      setIsFirst(false);
+      const timer0 = setTimeout(() => {
+        setFadeOut(true);
+      }, 200);
+      const timer1 = setTimeout(() => {
+        setHasStarted(true);
+      }, 900);
+
+      return () => {
+        clearTimeout(timer0);
+        clearTimeout(timer1);
+      };
+    }
+  }, [hasStarted]);
+
 
   // Hadle Submit of the input
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,7 +172,7 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
         // Normal Chatting , continue with mockBotResponse
-       const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path );
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -176,6 +187,8 @@ export default function ChatPage() {
 
   const handleNewChat = () => {
     setMessages([]);
+    setHasStarted(false);
+    sendFirstBotMessage(setMessages, setStage, 500)
   };
 
   // UI
@@ -228,30 +241,38 @@ export default function ChatPage() {
 
         {/* New Chat Button */}
         {sidebarOpen ? (
-          <button
+          <Link
+            href={{
+              pathname: "/protected/career-match",
+              query: { path: isSimplified ? "simplified" : "completed", sessionId: createNewSession() },
+            }}
             onClick={handleNewChat}
             className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
             style={{ color: accentColor }}
           >
             <VscNewFile className="text-2xl" />
             New Chat
-          </button>
+          </Link>
         ) : (
-          <button
+          <Link
+            href={{
+              pathname: "/protected/career-match",
+              query: { path: isSimplified ? "simplified" : "completed", sessionId: createNewSession() },
+            }}
             onClick={handleNewChat}
             className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
             style={{ color: accentColor }}
           >
             <VscNewFile className="text-2xl" />
-          </button>
+          </Link>
         )}
 
         {/* Chat History */}
         <nav className="flex-1 overflow-y-auto px-2 space-y-1">
           {chatHistory.length === 0 && sidebarOpen && (
-            <p className="text-gray-400 italic px-2 mt-4">No chat history</p>
+            <p className="text-gray-400 italic px-3 mt-20">No chat history</p>
           )}
-          {sidebarOpen ? (
+          {chatHistory.length !== 0 && sidebarOpen ? (
             <p className="text-gray-400 italic px-3 mt-20">Chat</p>
           ) : (
             <p></p>
@@ -261,38 +282,33 @@ export default function ChatPage() {
               sidebarOpen && (
                 <button
                   key={chat.id}
-                  className="w-full text-left px-1 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-100 flex items-center gap-4"
+                  className="w-full text-left px-1 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-100 flex justify-between items-center"
                   style={{ color: accentColor }}
                   onClick={() =>
                     alert(`Switch to chat ${chat.title} (implement later)`)
                   }
                 >
+                  {/* Titolo */}
+                  <span
+                    className={`overflow-hidden whitespace-nowrap ease-in-out 
+                      ${sidebarOpen ? "opacity-100 max-w-full ml-2" : "opacity-0 max-w-0"}`
+                    }
+                  >
+                    {chat.title}
+                  </span>
 
-                  {/* History Chat Titles*/}
-                  <div className="flex gap-27">
+                  {/* Colored Dot */}
+                  {path && (
                     <span
-                      className={`overflow-hidden whitespace-nowrap ease-in-out 
-                        ${sidebarOpen ? "opacity-100 max-w-full ml-2" : "opacity-0 max-w-0" }
-                      `}
-                    >
-                      {chat.title}
-                    </span>
-                    {/* Colored Dots */}
-                    <span>
-                      {path && (
-                        <span
-                          className="inline-block rounded-full"
-                          style={{
-                            width: '12px',
-                            height: '12px',
-                            backgroundColor: accentBg,
-                            border: `1px solid ${accentColor}`,
-                          }}
-                        />
-                      )}
-                    </span>
-                  </div>
-
+                      className="inline-block rounded-full mr-2"
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: accentBg,
+                        border: `1px solid ${accentColor}`,
+                      }}
+                    />
+                  )}
                 </button>
               )
           )}
@@ -410,7 +426,7 @@ export default function ChatPage() {
         <form
           onSubmit={handleSubmit}
           className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
-                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[35%] translate-y" }
+                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[35%] translate-y"}
                     `}
           style={{
             borderColor: accentColor,
