@@ -96,8 +96,8 @@ Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senz
     .slice(0, 12) // prendi massimo 12
     .map((q) => ({ question: q }));    
 
-  console.log("✅ Domande finali parsate:", questions.length);
-  console.log("📝 Domande parsate:", questions);
+  console.log(" Domande finali parsate:", questions.length);
+  console.log(" Domande parsate:", questions);
 
   return questions; 
 }
@@ -127,19 +127,32 @@ export async function chatbotLoopCompleted(
   userId: string,
   sessionNumber: string,
   path: string,
-  topics: string[] = ["ingegenria meccanica"] // argomenti di default
+  topics: string[] = ["ingegneria meccanica"] // corretto il typo
 ): Promise<{ message: string; done: boolean }> {
   const mcp = await getMcpClient();
   const sessionKey = `${userId}-${sessionNumber}`;
 
   let session = sessions.get(sessionKey);
 
-  // Se nuova sessione, genera domande dall'AI
+  // Domande aggiuntive fisse
+  const additionalQuestions = [
+    { question: "In che citta vorresti lavorare?" },
+    { question: "Chi sei?" },
+    { question: "Come va?" },
+    { question: "Perché utilizzi questo servizio?" },
+    { question: "Come stai?" }
+  ];
+
+  // Se nuova sessione, genera domande dall'AI + domande aggiuntive
   if (!session) {
     const generatedQuestions = await generateQuestions(topics);
-
-
-    session = { step: 0, answers: [], flow: generatedQuestions };
+    const allQuestions = [...generatedQuestions, ...additionalQuestions];
+    
+    console.log(" Domande ikigai generate:", generatedQuestions.length);
+    console.log(" Domande aggiuntive:", additionalQuestions.length);
+    console.log(" Domande totali:", allQuestions.length);
+    
+    session = { step: 0, answers: [], flow: allQuestions };
     sessions.set(sessionKey, session);
   }
 
@@ -151,7 +164,7 @@ export async function chatbotLoopCompleted(
     };
   }
 
-  // Se finite le domande
+  // Se finite tutte le domande (ikigai + aggiuntive)
   if (session.step >= session.flow.length) {
     sessions.delete(sessionKey);
     return {
@@ -171,12 +184,18 @@ export async function chatbotLoopCompleted(
 
   // Salvo risposta precedente in MCP
   const prevQuestion = session.flow[session.step].question;
+  
+  // Determina il tipo di domanda per il log
+  const questionType = session.step < 12 ? "ikigai" : "additional";
 
-  console.log("💾 Salvataggio su Mongo:", {
+  console.log(" Salvataggio su Mongo:", {
     id: userId,
     number_session: sessionNumber,
     question: prevQuestion,
     answer: userInput,
+    step: session.step + 1,
+    totalQuestions: session.flow.length,
+    questionType: questionType
   });
 
   try {
@@ -200,10 +219,20 @@ export async function chatbotLoopCompleted(
   session.step += 1;
   sessions.set(sessionKey, session);
 
+  // Messaggio di transizione tra ikigai e domande aggiuntive
+  let nextMessage = "";
+  if (session.step === 12) {
+    nextMessage = "Perfetto! Ora ho alcune domande aggiuntive per conoscerti meglio. " + 
+                 (session.flow[session.step]?.question ?? "");
+  } else {
+    nextMessage = session.flow[session.step]?.question ?? 
+                 "Ottimo, hai finito le domande ora ti do la conclusione.";
+  }
+
+  console.log(` Step: ${session.step}/${session.flow.length} - Tipo: ${session.step <= 12 ? 'ikigai' : 'additional'}`);
+
   return {
-    message:
-      session.flow[session.step]?.question ??
-      "Ottimo, hai finito le domande ora ti do la conclusione.",
+    message: nextMessage,
     done: session.step >= session.flow.length,
   };
 }
