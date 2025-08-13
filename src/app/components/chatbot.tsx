@@ -122,30 +122,8 @@ export default function ChatPage() {
       };
     }
   }, [hasStarted]);
-  /*
-    useEffect(() => {
-      if (!hasStarted) setHasStarted(true); // <-- questo
-  
-      const userMessage: Message = { sender: "user", text: input.trim() };
-      setMessages((prev) => [...prev, userMessage]);
-      setInput("");
-      setIsLoading(true);
-  
-      try {
-        //const botResponse = await mockBotResponse(input.trim());
-        if (!uid) return;
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
-        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: "Something went wrong. Please try again." },
-        ]);
-      } finally {
-        setIsLoading(false);
-      }
-    });
-  */
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -160,15 +138,14 @@ export default function ChatPage() {
 
       if (stage === "waitingForCV") {
         // L'utente ha risposto a domanda CV in chat
-        // Qui puoi decidere di ignorare la risposta e andare avanti
         setStage("chatting");
 
         // Risposta bot che va avanti con domande AI
-        const botResponse = await mockBotResponse("__INIT__", uid, sessionId);
+        const botResponse = await mockBotResponse("__INIT__", uid, sessionId, isSimplified);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
         // Stadio chatting normale, continua con il mockBotResponse
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId);
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, isSimplified );
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -478,7 +455,8 @@ export default function ChatPage() {
                             const botResponse = await mockBotResponse(
                               "__INIT__",
                               uid,
-                              sessionId
+                              sessionId,
+                              isSimplified
                             );
                             setMessages((prev) => [
                               ...prev,
@@ -563,20 +541,11 @@ export default function ChatPage() {
   );
 }
 
-// Mock bot response
-/*
-async function mockBotResponse(userInput: string): Promise<string> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(`You said: "${userInput}"`);
-    }, 1000);
-  });
-}*/
-
 async function mockBotResponse(
   userInput: string,
   uid: string | null,
-  session: string | null
+  session: string | null,
+  isSimplified: boolean 
 ): Promise<string> {
   const res = await fetch("/api/chatbot", {
     method: "POST",
@@ -587,11 +556,12 @@ async function mockBotResponse(
       userInput,
       userId: uid,
       session,
+      isSimplified,
     }),
   });
 
   const data = await res.json();
 
-  // Assicurati che data.response sia un oggetto con campo message
+  //data.response deve essere un oggetto con campo message
   return data.response?.message ?? "Nessuna risposta";
 }

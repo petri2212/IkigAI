@@ -80,10 +80,11 @@ async function answerExternalQuestion(question: string): Promise<string> {
 }
 
 
-export async function chatbotLoop(
+export async function chatbotLoopCompleted(
   userInput: string,
   userId: string,
   sessionNumber: string,
+  isSimplified:boolean,
   topics: string[] = ["ingegenria meccanica"] // argomenti di default
 ): Promise<{ message: string; done: boolean }> {
   const mcp = await getMcpClient();
@@ -161,3 +162,15 @@ export async function chatbotLoop(
     done: session.step >= session.flow.length,
   };
 }
+
+
+export async function chatbotLoopSimplified(
+  userInput: string,
+  userId: string,
+  sessionNumber: string,
+  isSimplified: boolean,
+  topics: string[] = ["ingegenria meccanica"] 
+): Promise<void> {
+  // TODO: implement function logic
+}
+

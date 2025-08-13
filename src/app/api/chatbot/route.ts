@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { chatbotLoop } from "@/application/chatbotLoop";
+import { chatbotLoopCompleted, chatbotLoopSimplified } from "@/application/chatbotLoop";
 
 export async function POST(req: Request) {
   try {
-    const { userInput, userId, session } = await req.json();
+    const { userInput, userId, session , isSimplified } = await req.json();
 
-        //const result = await chatbotLoop(userId, token, userInput);
-    const response = await chatbotLoop(userInput, userId, session);
+    let response: any;
+
+    if(isSimplified){
+        response = await chatbotLoopSimplified(userInput, userId, session, isSimplified);
+    }else{
+     response = await chatbotLoopCompleted(userInput, userId, session, isSimplified);
+    }
+   
 
     return NextResponse.json({ success: true, response });
   } catch (error: any) {
