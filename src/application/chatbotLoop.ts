@@ -122,6 +122,12 @@ async function answerExternalQuestion(question: string): Promise<string> {
   );
 }
 
+async function getTransitionMessage(): Promise<string> {
+  return `Perfetto! Hai completato la prima parte dell'ikigai.
+Adesso passiamo ad alcune domande aggiuntive per conoscerti meglio.`;
+}
+
+
 export async function chatbotLoopCompleted(
   userInput: string,
   userId: string,
@@ -216,18 +222,38 @@ export async function chatbotLoopCompleted(
   session.answers.push(userInput);
 
   // Prossima domanda
-  session.step += 1;
-  sessions.set(sessionKey, session);
+session.step += 1;
+sessions.set(sessionKey, session);
 
-  // Messaggio di transizione tra ikigai e domande aggiuntive
-  let nextMessage = "";
-  if (session.step === 12) {
-    nextMessage = "Perfetto! Ora ho alcune domande aggiuntive per conoscerti meglio. " + 
-                 (session.flow[session.step]?.question ?? "");
-  } else {
-    nextMessage = session.flow[session.step]?.question ?? 
-                 "Ottimo, hai finito le domande ora ti do la conclusione.";
+let nextMessage = "";
+
+// Se abbiamo appena finito le 12 domande ikigai
+if (session.step === 12) {
+  const transitionText = await getTransitionMessage();
+
+  // Salvataggio del messaggio di transizione su Mongo (come domanda/risposta)
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: transitionText,        // Salviamo il testo come "domanda"
+        answer: userInput,                // Risposta alla 12ª domanda
+        path: path,
+      },
+    });
+  } catch (err) {
+    console.error("Errore salvataggio transizione MCP:", err);
   }
+
+  // Messaggio che l'utente vedrà subito dopo
+  nextMessage = `${transitionText} ${session.flow[session.step]?.question ?? ""}`;
+} else {
+  // Normale passaggio di domanda
+  nextMessage = session.flow[session.step]?.question ??
+               "Ottimo, hai finito le domande ora ti do la conclusione.";
+}
 
   console.log(` Step: ${session.step}/${session.flow.length} - Tipo: ${session.step <= 12 ? 'ikigai' : 'additional'}`);
 
