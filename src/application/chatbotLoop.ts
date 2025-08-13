@@ -14,15 +14,24 @@ type SessionState = {
 
 const sessions = new Map<string, SessionState>();
 
-
-
 // Rileva domanda utente
 function isUserAskingQuestion(input: string): boolean {
   const trimmed = input.trim();
   if (!trimmed) return false;
   const questionWords = [
-    "what", "why", "how", "when", "where", "who",
-    "che", "come", "perché", "quando", "dove", "chi", "cosa"
+    "what",
+    "why",
+    "how",
+    "when",
+    "where",
+    "who",
+    "che",
+    "come",
+    "perché",
+    "quando",
+    "dove",
+    "chi",
+    "cosa",
   ];
   if (trimmed.endsWith("?")) return true;
   const lower = trimmed.toLowerCase();
@@ -33,33 +42,64 @@ function isUserAskingQuestion(input: string): boolean {
 }
 
 // Genera 4 domande dall'AI su argomenti dati
-async function generateQuestions(topics: string[]): Promise<{ question: string }[]> {
-  const prompt = `Genera 4 domande pertinenti per un'intervista sui seguenti argomenti: ${topics.join(
-    ", "
-  )}.
-Le domande devono essere brevi, chiare e in italiano. Rispondi solo con le domande, ciascuna su una nuova riga, senza numeri, senza punti elenco e senza separatori.`;
+async function generateQuestions(   
+  topics: string[] 
+): Promise<{ question: string }[]> {   
+  const prompt = `Ikigai (生き甲斐) è un termine giapponese che si traduce approssimativamente come "ragione di essere" o "scopo della vita". Non ha una traduzione diretta in italiano, ma racchiude il concetto di trovare gioia e significato nella vita, qualcosa che motiva ad alzarsi ogni mattina. È la combinazione di ciò che ami, ciò in cui sei bravo, ciò di cui il mondo ha bisogno e ciò per cui puoi essere pagato.
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [
-      { role: "system", content: "Sei un assistente che genera domande." },
-      { role: "user", content: prompt },
-    ],
-    max_tokens: 150,
-    temperature: 0.7,
-  });
+Ecco i punti chiave dell'ikigai:
 
-  const text = completion.choices[0].message.content ?? "";
+Passione: Ciò che ami fare, che ti appassiona e ti motiva.
+Missione: Ciò che serve al mondo, il tuo contributo alla società.
+Vocazione: Ciò in cui sei bravo, le tue capacità e talenti.
+Professione: Ciò per cui puoi essere pagato, la tua attività lavorativa.
 
-  const questions = text
-    .split("\n")
+GENERA ESATTAMENTE 12 DOMANDE, una per riga:
+- 4 domande sulla PASSIONE
+- 4 domande sulla MISSIONE  
+- 4 domande sulla VOCAZIONE
+- 4 domande sulla PROFESSIONE
+
+Le domande devono essere medio-brevi, chiare e in italiano, adatte anche a ragazzi che non sanno cosa fare della loro vita.
+
+FORMATO RICHIESTO:
+Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senza separatori. Solo le domande pure.`;    
+
+  const completion = await openai.chat.completions.create({     
+    model: "gpt-3.5-turbo",     
+    messages: [       
+      { role: "system", content: "Sei un assistente che genera esattamente 12 domande, una per riga, senza numerazione." },       
+      { role: "user", content: prompt },     
+    ],     
+    max_tokens: 800, // aumentato ancora di più
+    temperature: 0.5, // ridotta per più coerenza
+  });    
+
+  const text = completion.choices[0].message.content ?? "";    
+  
+  // DEBUG: Stampa il testo grezzo
+  console.log("🔍 Testo grezzo dall'AI:", text);
+  console.log("🔍 Righe totali:", text.split("\n").length);
+
+  const questions = text     
+    .split("\n")     
+    .map((q) => q.trim())     
+    .filter((q) => q.length > 5) // filtro più permissivo
+    .filter((q) => !/^[-–—\s]*$/.test(q)) // elimina linee vuote o di soli trattini
+    .filter((q) => !q.toLowerCase().includes('passione') || q.includes('?')) // elimina intestazioni
+    .filter((q) => !q.toLowerCase().includes('missione') || q.includes('?'))
+    .filter((q) => !q.toLowerCase().includes('vocazione') || q.includes('?'))
+    .filter((q) => !q.toLowerCase().includes('professione') || q.includes('?'))
+    .map((q) => q.replace(/^[-•\d.\s]+/, "")) // rimuove bullet/numero iniziale     
     .map((q) => q.trim())
-    .filter((q) => q.length > 0 && !/^[-–—]+$/.test(q)) // elimina linee di soli trattini
-    .map((q) => q.replace(/^[-•\d.]+\s*/, "")) // rimuove bullet/numero iniziale
-    .slice(0, 4)
-    .map((q) => ({ question: q }));
+    .filter((q) => q.length > 0)
+    .slice(0, 12) // prendi massimo 12
+    .map((q) => ({ question: q }));    
 
-  return questions;
+  console.log("✅ Domande finali parsate:", questions.length);
+  console.log("📝 Domande parsate:", questions);
+
+  return questions; 
 }
 
 // Risponde a domande esterne con AI
@@ -76,15 +116,17 @@ async function answerExternalQuestion(question: string): Promise<string> {
     temperature: 0.6,
   });
 
- return completion.choices?.[0]?.message?.content?.trim() ?? "Non so come rispondere a questa domanda.";
+  return (
+    completion.choices?.[0]?.message?.content?.trim() ??
+    "Non so come rispondere a questa domanda."
+  );
 }
-
 
 export async function chatbotLoopCompleted(
   userInput: string,
   userId: string,
   sessionNumber: string,
-  isSimplified:boolean,
+  path: string,
   topics: string[] = ["ingegenria meccanica"] // argomenti di default
 ): Promise<{ message: string; done: boolean }> {
   const mcp = await getMcpClient();
@@ -95,6 +137,8 @@ export async function chatbotLoopCompleted(
   // Se nuova sessione, genera domande dall'AI
   if (!session) {
     const generatedQuestions = await generateQuestions(topics);
+
+
     session = { step: 0, answers: [], flow: generatedQuestions };
     sessions.set(sessionKey, session);
   }
@@ -143,6 +187,7 @@ export async function chatbotLoopCompleted(
         number_session: sessionNumber,
         question: prevQuestion,
         answer: userInput,
+        path: path,
       },
     });
   } catch (err) {
@@ -163,14 +208,12 @@ export async function chatbotLoopCompleted(
   };
 }
 
-
 export async function chatbotLoopSimplified(
   userInput: string,
   userId: string,
   sessionNumber: string,
-  isSimplified: boolean,
-  topics: string[] = ["ingegenria meccanica"] 
+  isSimplified: string,
+  topics: string[] = ["ingegenria meccanica"]
 ): Promise<void> {
   // TODO: implement function logic
 }
-
