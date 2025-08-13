@@ -2,26 +2,28 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { HiX, HiMenu } from "react-icons/hi";
 import Link from "next/link";
 import Image from "next/image";
-import { FaArrowCircleRight, FaPlus, FaRobot, FaUser } from "react-icons/fa";
 import { Manrope } from "next/font/google";
+// Pdfhandler
 import { handlePdfUpload } from "@/application/uploadPdf";
-//in order to get user id
+// In order to get user id
 import { auth } from "@/infrastructure/firebase/config";
-//i need uuid for creating a unique session token
+// uuid for creating a unique session token
 import { v4 as uuidv4 } from "uuid";
 import ReactMarkdown from "react-markdown";
-import { TbNewSection } from "react-icons/tb";
+// Icons
 import { MdPictureAsPdf } from "react-icons/md";
 import { VscNewFile } from "react-icons/vsc";
+import { FaArrowCircleRight, FaUser } from "react-icons/fa";
+import { HiX } from "react-icons/hi";
+// Typing animation
 import { Typewriter } from 'react-simple-typewriter'
 import path from "node:path";
-//const newSessionId = uuidv4();
+
 const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["400", "500", "600"], // pesi che ti servono
+  weight: ["400", "500", "600"], 
 });
 
 type Message = {
@@ -34,17 +36,19 @@ type ChatHistoryItem = {
   title: string;
 };
 
+
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const path = searchParams.get("path");
-  // Determino colore e nome percorso
+  // Path determination
   const isSimplified = path === "simplified";
+
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  //const [sessionNumber, setSessionNumber] = useState<string | null>(null);
-  // Sidebar aperta/chiusa
+
+  // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
@@ -53,24 +57,35 @@ export default function ChatPage() {
     { id: "1", title: "Chat with IkigAI 1" },
     { id: "2", title: "Chat with IkigAI 2" },
   ]);
-
-  //FLUSSO
+  // Flow
   const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
     "askCV"
   );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Messaggi chat
+  // Chat messages
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
 
+  // Main colors based on path
+  const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
+  const textColor = isSimplified ? "#1e3a8a" : "#2b9f55ff";
+  const accentBg = isSimplified ? "var(--color-blue-light)" : "var(--color-green-light)";
+  const accentHover = isSimplified ? "#1e3a8a" : "#16a34a";
+  const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff";
+  const lightBG = isSimplified ? "#1643c13a" : "#47d02139";
+  const baseColor = "#6b7280";
+  const imageSrc = isSimplified ? "/images/wallpaper1.png" : "/images/wallpaper2.png";
+
+  // Scroll effect
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // Session Generation
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -91,6 +106,7 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, []);
 
+  // First Bot Message
   useEffect(() => {
     if (!uid) return;
 
@@ -107,7 +123,7 @@ export default function ChatPage() {
     return () => clearTimeout(timer);
   }, [uid]);
 
-
+  // Animation Effects
   useEffect(() => {
     if (!hasStarted) {
       const timer0 = setTimeout(() => {
@@ -124,7 +140,7 @@ export default function ChatPage() {
     }
   }, [hasStarted]);
 
-
+  // Hadle Submit of the input
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -138,15 +154,14 @@ export default function ChatPage() {
       if (!uid) return;
 
       if (stage === "waitingForCV") {
-        // L'utente ha risposto a domanda CV in chat
+        // User has answered at the CV question in chat
         setStage("chatting");
-
-        // Risposta bot che va avanti con domande AI
+        // Bot proceeds with AI questions
         const botResponse = await mockBotResponse("__INIT__", uid, sessionId, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
-        // Stadio chatting normale, continua con il mockBotResponse
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path );
+        // Normal Chatting , continue with mockBotResponse
+       const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path );
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -163,28 +178,15 @@ export default function ChatPage() {
     setMessages([]);
   };
 
-  // Classi dinamiche per colore principale e sfondo gradiente
-  const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
-  const textColor = isSimplified ? "#1e3a8a" : "#2b9f55ff";
-  const accentBg = isSimplified
-    ? "var(--color-blue-light)"
-    : "var(--color-green-light)";
-  const accentHover = isSimplified ? "#1e3a8a" : "#16a34a"; // blu-700 o green-600
-  const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff";
-  const lightBG = isSimplified ? "#1643c13a" : "#47d02139";
-  const baseColor = "#6b7280";
-  const imageSrc = isSimplified
-    ? "/images/wallpaper1.png"
-    : "/images/wallpaper2.png";
-
+  // UI
   return (
     <div className="flex h-screen bg-blue-200">
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <aside
         className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${sidebarOpen ? "w-72" : "w-16"
           }`}
       >
-        {/* Top bar: logo + toggle */}
+        {/* Logo */}
         <div className="flex items-center justify-between px-2 h-16 border-gray-200 ">
           {sidebarOpen ? (
             <h2 className="text-xl font-bold">
@@ -204,7 +206,7 @@ export default function ChatPage() {
           ) : (
             <p></p>
           )}
-
+          {/* Sidebar: Open/Close */}
           <button
             onClick={() => setSidebarOpen((v) => !v)}
             className="p-1 rounded hover:bg-gray-200 transition"
@@ -224,7 +226,7 @@ export default function ChatPage() {
           </button>
         </div>
 
-        {/* New Chat button */}
+        {/* New Chat Button */}
         {sidebarOpen ? (
           <button
             onClick={handleNewChat}
@@ -266,17 +268,16 @@ export default function ChatPage() {
                   }
                 >
 
-                  {/* Testo completo, sempre presente ma con transizione */}
+                  {/* History Chat Titles*/}
                   <div className="flex gap-27">
                     <span
-                      className={`overflow-hidden whitespace-nowrap ease-in-out ${sidebarOpen
-                        ? "opacity-100 max-w-full ml-2"
-                        : "opacity-0 max-w-0"
-                        }`}
+                      className={`overflow-hidden whitespace-nowrap ease-in-out 
+                        ${sidebarOpen ? "opacity-100 max-w-full ml-2" : "opacity-0 max-w-0" }
+                      `}
                     >
                       {chat.title}
                     </span>
-                    {/* Pallini, colore da modificare in base all tipo di */}
+                    {/* Colored Dots */}
                     <span>
                       {path && (
                         <span
@@ -298,7 +299,7 @@ export default function ChatPage() {
         </nav>
       </aside>
 
-      {/* Main chat area */}
+      {/* MAIN CHAT AREA */}
       <main
         className={`flex flex-col flex-1 ${manrope.className}`}
         style={{
@@ -309,7 +310,7 @@ export default function ChatPage() {
           minHeight: "100vh",
         }}
       >
-        {/* Header titolo + badge */}
+        {/* Header */}
         <div className="flex items-center justify-between px-8 py-4 shadow-sm backdrop-blur-sm z-50">
           <h1 className="text-2xl font-semibold text-gray-800">
             Chat with IkigAI
@@ -329,7 +330,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Messaggi scrollabili fino in alto o centrati */}
+        {/* MESSAGES AREA */}
         {hasStarted && (
           <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300">
             <div className="max-w-[60%] mx-auto space-y-4">
@@ -339,7 +340,7 @@ export default function ChatPage() {
                   className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"
                     }`}
                 >
-                  {/* Icona all'inizio del messaggio */}
+                  {/* Icons */}
                   <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
                     {msg.sender === "bot" ? (
                       <Image
@@ -354,14 +355,11 @@ export default function ChatPage() {
                     )}
                   </div>
 
-                  {/* Testo del messaggio */}
+                  {/* Print Output */}
                   <div
                     className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
                     style={{
-                      backgroundColor:
-                        msg.sender === "user"
-                          ? lightBG
-                          : "rgba(255, 255, 255, 0.4)",
+                      backgroundColor: msg.sender === "user" ? lightBG : "rgba(255, 255, 255, 0.4)",
                       color: "#111827",
                       maxWidth: "75%",
                     }}
@@ -370,7 +368,7 @@ export default function ChatPage() {
                   </div>
                 </div>
               ))}
-
+              {/* Animation During IkigAI Response*/}
               {isLoading && (
                 <div className="flex items-start gap-3 animate-pulse">
                   <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
@@ -408,14 +406,11 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Input centrato e fisso */}
+        {/* INPUT AREA */}
         <form
           onSubmit={handleSubmit}
           className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
-                    ${hasStarted
-              ? "sticky bottom-10"
-              : "sticky bottom-[35%] translate-y"
-            }
+                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[35%] translate-y" }
                     `}
           style={{
             borderColor: accentColor,
@@ -423,7 +418,7 @@ export default function ChatPage() {
           }}
         >
           <div className="relative flex-1">
-            {/* Bottone upload */}
+            {/* Upload Button */}
             <label
               className="absolute left-3 top-8 cursor-pointer transition-colors"
               onMouseEnter={() => setHovered(true)}
@@ -496,7 +491,7 @@ export default function ChatPage() {
               />
             </label>
 
-            {/* Textarea multilinea */}
+            {/* Textarea */}
             <textarea
               placeholder="Type your message..."
               value={input}
@@ -517,7 +512,7 @@ export default function ChatPage() {
               }}
             />
 
-            {/* Pulsante invio */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -563,6 +558,6 @@ async function mockBotResponse(
 
   const data = await res.json();
 
-  //data.response deve essere un oggetto con campo message
+  //data.response must be an object with a message field
   return data.response?.message ?? "Nessuna risposta";
 }

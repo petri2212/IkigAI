@@ -9,7 +9,7 @@ export default function HomePage() {
       <section className="min-h-screen flex flex-col justify-center px-6 py-20 bg-gradient-to-b from-white to-gray-100">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-x-24 items-center">
 
-          {/* Left Column: Text */}
+          {/* Text */}
           <div className="text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Your Ikigai. Your Future.
@@ -22,7 +22,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Right Column: Image */}
+          {/* Image */}
           <div className="flex justify-center">
             <img
               src="/images/ikigai1.png"

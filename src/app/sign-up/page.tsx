@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { sendEmailVerification } from 'firebase/auth';
 import Header from '../components/header';
 
-// Funzione per messaggi di errore chiari
+// Error messages
 const getFriendlyErrorMessage = (code: string): string => {
   switch (code) {
     case 'auth/email-already-in-use':
@@ -25,7 +25,7 @@ const getFriendlyErrorMessage = (code: string): string => {
   }
 };
 
-// Funzione di validazione password client-side
+// Password validation
 const validatePassword = (password: string): string | null => {
   const minLength = /.{7,}/;
   const uppercase = /[A-Z]/;
@@ -46,7 +46,6 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [customError, setCustomError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const router = useRouter();
 
   const [
     createUserWithEmailAndPassword,
