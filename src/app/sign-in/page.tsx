@@ -41,7 +41,8 @@ export default function SignInPage() {
             console.log(res);
             setEmail("");
             setPassword("");
-            router.push("/protected/"); // Redirect to home page after successful sign-in
+            // Redirect to home page after successful sign-in
+            router.push("/protected/"); 
         } catch (e) {
             console.error("Error signing in:", e);
         }
