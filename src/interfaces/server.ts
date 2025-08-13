@@ -22,7 +22,7 @@ const server = new McpServer({
     prompts: {},
   },
 });
-
+/*
 server.resource(
   "users",
   "user://all",
@@ -83,7 +83,7 @@ server.resource(
     };
   }
 );
-
+*/
 server.resource(
   "get-jobs",
   "job://all",
@@ -135,7 +135,7 @@ server.resource(
     };
   }
 );
-
+/*
 server.tool(
   "create-user",
   "Create a new user in the database",
@@ -221,7 +221,7 @@ server.tool(
       };
     }
   }
-);
+);*/
 //create pdf to mongo
 server.tool(
   "save-pdf-to-mongo",
@@ -456,6 +456,7 @@ server.tool(
     number_session: z.string(),
     question: z.string(),
     answer: z.string(),
+    path: z.string(),
   },
   {
     title: "Save Session Data (Append or Insert)",
@@ -464,7 +465,7 @@ server.tool(
     idempotentHint: false,
     openWorldHint: true,
   },
-  async ({ id, number_session, question, answer }) => {
+  async ({ id, number_session, question, answer, path}) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -511,6 +512,7 @@ server.tool(
           id,
           number_session,
           createdAt: new Date(),
+          path,
           q_and_a: [
             {
               question,
@@ -643,21 +645,6 @@ server.prompt(
   }
 );
 
-async function createUser(user: {
-  name: string;
-  email: string;
-  address: string;
-  phone: string;
-}) {
-  const users = await import("./data/users.json", {
-    with: { type: "json" },
-  }).then((m) => m.default);
-  const id = users.length + 1;
-  users.push({ id, ...user });
-  await fs.writeFile("./src/data/users.json", JSON.stringify(users, null, 2));
-
-  return id;
-}
 
 async function main() {
   // try {

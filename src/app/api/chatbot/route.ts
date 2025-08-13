@@ -3,14 +3,14 @@ import { chatbotLoopCompleted, chatbotLoopSimplified } from "@/application/chatb
 
 export async function POST(req: Request) {
   try {
-    const { userInput, userId, session , isSimplified } = await req.json();
+    const { userInput, userId, session , path } = await req.json();
 
     let response: any;
 
-    if(isSimplified){
-        response = await chatbotLoopSimplified(userInput, userId, session, isSimplified);
+    if(path == "simplified"){
+        response = await chatbotLoopSimplified(userInput, userId, session, "simplified");
     }else{
-     response = await chatbotLoopCompleted(userInput, userId, session, isSimplified);
+     response = await chatbotLoopCompleted(userInput, userId, session, "completed");
     }
    
 

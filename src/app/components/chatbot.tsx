@@ -17,6 +17,7 @@ import { TbNewSection } from "react-icons/tb";
 import { MdPictureAsPdf } from "react-icons/md";
 import { VscNewFile } from "react-icons/vsc";
 import { Typewriter } from 'react-simple-typewriter'
+import path from "node:path";
 //const newSessionId = uuidv4();
 const manrope = Manrope({
   subsets: ["latin"],
@@ -141,11 +142,11 @@ export default function ChatPage() {
         setStage("chatting");
 
         // Risposta bot che va avanti con domande AI
-        const botResponse = await mockBotResponse("__INIT__", uid, sessionId, isSimplified);
+        const botResponse = await mockBotResponse("__INIT__", uid, sessionId, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
         // Stadio chatting normale, continua con il mockBotResponse
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, isSimplified );
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path );
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -456,7 +457,7 @@ export default function ChatPage() {
                               "__INIT__",
                               uid,
                               sessionId,
-                              isSimplified
+                              path
                             );
                             setMessages((prev) => [
                               ...prev,
@@ -545,7 +546,7 @@ async function mockBotResponse(
   userInput: string,
   uid: string | null,
   session: string | null,
-  isSimplified: boolean 
+  path: string | null
 ): Promise<string> {
   const res = await fetch("/api/chatbot", {
     method: "POST",
@@ -556,7 +557,7 @@ async function mockBotResponse(
       userInput,
       userId: uid,
       session,
-      isSimplified,
+      path,
     }),
   });
 
