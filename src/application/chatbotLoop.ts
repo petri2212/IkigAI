@@ -136,10 +136,10 @@ export async function chatbotLoopCompleted(
 
   // Domande aggiuntive fisse
   const additionalQuestions = [
-    { question: "In che citta vorresti lavorare?" },
-    { question: "Chi sei?" },
-    { question: "Come va?" },
-    { question: "Perché utilizzi questo servizio?" },
+    { question: "In che citta\paese\regione vorresti lavorare?" },
+    { question: "Quanto vorresti essere pagato?" },
+    { question: "Vorresti un lavoro part time?" },
+    { question: "Hai in mente qualche azienda specifica, digita il nome?" },
     { question: "Come stai?" }
   ];
 
