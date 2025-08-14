@@ -439,7 +439,7 @@ export default function ChatPage() {
                     const file = e.target.files[0];
                     if (uid && sessionId) {
                       try {
-                        const result = await handlePdfUpload(file, uid);
+                        const result = await handlePdfUpload(file, uid, sessionId);
                         if (result.success) {
                           setMessages((prev) => [
                             ...prev,

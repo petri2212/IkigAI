@@ -1,4 +1,4 @@
-export const handlePdfUpload = (file: File, userId: string): Promise<any> => {
+export const handlePdfUpload = (file: File, userId: string, session: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -14,6 +14,7 @@ export const handlePdfUpload = (file: File, userId: string): Promise<any> => {
           body: JSON.stringify({
             id: userId,
             base64pdf,
+            session,
           }),
         });
 

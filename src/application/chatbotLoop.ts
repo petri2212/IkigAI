@@ -151,7 +151,7 @@ async function getJobSuggestion(userId: string, sessionNumber: string): Promise<
   try {
     const cvResponse = (await mcp.callTool({
       name: "get-pdf-from-mongo",
-      arguments: { id: userId },
+      arguments: { id: userId , session:sessionNumber  },
     })) as ToolResponse;
 
     if (cvResponse.content?.[0]?.text) {

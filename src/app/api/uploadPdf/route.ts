@@ -3,15 +3,22 @@ import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
 export async function POST(req: Request) {
   try {
-    const { id, base64pdf } = await req.json();
+    const { id, base64pdf, session } = await req.json();
 
     const mcp = await getMcpClient();
+
+    console.log("DEBUG save-pdf-to-mongo params:", {
+  id: id,
+  pdfLength: base64pdf?.length,
+  session: session,
+});
 
     const result = await mcp.callTool({
       name: "save-pdf-to-mongo",
       arguments: {
-        id_unique: id,
+        id,
         pdf: base64pdf,
+        session,
       },
     });
 

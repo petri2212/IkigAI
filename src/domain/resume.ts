@@ -1,6 +1,7 @@
 export interface PdfDocument {
-  _id: string;          // string used like _id
+  id: string;          // string used like _id
   tipo: string;
+  session: string;
   file: Buffer;
   uploadedAt: Date;
 }
