@@ -227,8 +227,9 @@ server.tool(
   "save-pdf-to-mongo",
   "Save a local PDF file to MongoDB",
   {
-    id_unique: z.string(), // unique id of the user
-    pdf: z.string(), // base64 encoded PDF, right now i pass a path to test it
+    id: z.string(),       // unique id of the user
+    pdf: z.string(),      // base64 encoded PDF
+    session: z.string(),  // session number or identifier
   },
   {
     title: "Save PDF to MongoDB",
@@ -237,7 +238,7 @@ server.tool(
     idempotentHint: false,
     openWorldHint: true,
   },
-  async ({ id_unique, pdf }) => {
+  async ({ id, pdf, session }) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -254,25 +255,19 @@ server.tool(
 
       const buffer = Buffer.from(pdf, "base64");
 
-      const result = await collection.updateOne(
-        { _id: id_unique }, // filter to find document with _id = id_unique
-        {
-          $set: {
-            tipo: "application/pdf",
-            file: buffer,
-            uploadedAt: new Date(),
-          },
-        },
-        { upsert: true } // if it doesnt exist it create a new document
-      );
+      const result = await collection.insertOne({
+        id,
+        session,
+        tipo: "application/pdf",
+        file: buffer,
+        uploadedAt: new Date(),
+      });
 
       return {
         content: [
           {
             type: "text",
-            text: result.upsertedId
-              ? `PDF saved with ID: ${result.upsertedId.toString()}`
-              : "PDF updated (existing CV replaced).",
+            text: `PDF saved with Mongo _id: ${result.insertedId.toString()}`,
           },
         ],
       };
@@ -292,12 +287,14 @@ server.tool(
     }
   }
 );
+
 //retrieve pdf from mongo
 server.tool(
   "get-pdf-from-mongo",
   "Retrieve a PDF from MongoDB by ID and return it as base64",
   {
     id: z.string(),
+    session: z.string(),
   },
   {
     title: "Get PDF by ID",
@@ -306,7 +303,7 @@ server.tool(
     idempotentHint: true,
     openWorldHint: true,
   },
-  async ({ id }) => {
+  async ({ id, session}) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -320,11 +317,11 @@ server.tool(
       const db = client.db("Main");
       const collection = db.collection<PdfDocument>("CVs");
 
-      const doc = await collection.findOne({ _id: id }); // id is string
+      const doc = await collection.findOne({ id , session }); // id is string
 
       if (!doc) {
         return {
-          content: [{ type: "text", text: `PDF with ID ${id} don't found.` }],
+          content: [{ type: "text", text: `PDF with ID ${id} and session ${session} don't found.` }],
         };
       }
       const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept
@@ -547,7 +544,6 @@ server.tool(
     }
   }
 );
-
 //get session data
 server.tool(
   "get-session-data",
@@ -578,7 +574,7 @@ server.tool(
       const db = client.db("Main");
       const collection = db.collection<Message>("Sessions");
 
-      const session = await collection.findOne({ _id: id, number_session });
+      const session = await collection.findOne({id, number_session });
 
       if (!session) {
         return {
