@@ -40,6 +40,25 @@ function isUserAskingQuestion(input: string): boolean {
   }
   return false;
 }
+/*Ikigai (生き甲斐) è un termine giapponese che si traduce approssimativamente come "ragione di essere" o "scopo della vita". Non ha una traduzione diretta in italiano, ma racchiude il concetto di trovare gioia e significato nella vita, qualcosa che motiva ad alzarsi ogni mattina. È la combinazione di ciò che ami, ciò in cui sei bravo, ciò di cui il mondo ha bisogno e ciò per cui puoi essere pagato.
+
+Ecco i punti chiave dell'ikigai:
+
+Passione: Ciò che ami fare, che ti appassiona e ti motiva.
+Missione: Ciò che serve al mondo, il tuo contributo alla società.
+Vocazione: Ciò in cui sei bravo, le tue capacità e talenti.
+Professione: Ciò per cui puoi essere pagato, la tua attività lavorativa.
+
+GENERA ESATTAMENTE 12 DOMANDE, una per riga:
+- 4 domande sulla PASSIONE
+- 4 domande sulla MISSIONE  
+- 4 domande sulla VOCAZIONE
+- 4 domande sulla PROFESSIONE
+
+Le domande devono essere medio-brevi, chiare e in italiano, adatte anche a ragazzi che non sanno cosa fare della loro vita.
+
+FORMATO RICHIESTO:
+Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senza separatori. Solo le domande pure.*/ 
 
 // Genera 4 domande dall'AI su argomenti dati
 async function generateQuestions(   
@@ -54,11 +73,7 @@ Missione: Ciò che serve al mondo, il tuo contributo alla società.
 Vocazione: Ciò in cui sei bravo, le tue capacità e talenti.
 Professione: Ciò per cui puoi essere pagato, la tua attività lavorativa.
 
-GENERA ESATTAMENTE 12 DOMANDE, una per riga:
-- 4 domande sulla PASSIONE
-- 4 domande sulla MISSIONE  
-- 4 domande sulla VOCAZIONE
-- 4 domande sulla PROFESSIONE
+GENERA ESATTAMENTE 4 DOMANDE, una per riga, una su goni argomento dell'ikigai
 
 Le domande devono essere medio-brevi, chiare e in italiano, adatte anche a ragazzi che non sanno cosa fare della loro vita.
 
@@ -122,9 +137,55 @@ async function answerExternalQuestion(question: string): Promise<string> {
   );
 }
 
-async function getTransitionMessage(): Promise<string> {
+interface ToolResponse {
+  content: { type: string; text: string }[];
+}
+
+async function getJobSuggestion(userId: string, sessionNumber: string): Promise<string> {
+  let cvBase64: string | null = null;
+  let sessionData: string | null = null;
+
+  const mcp = await getMcpClient();
+
+  // Recupero CV
+  try {
+    const cvResponse = (await mcp.callTool({
+      name: "get-pdf-from-mongo",
+      arguments: { id: userId },
+    })) as ToolResponse;
+
+    if (cvResponse.content?.[0]?.text) {
+      cvBase64 = cvResponse.content[0].text;
+    } else {
+      console.warn(`CV non trovato per utente ${userId}`);
+    }
+  } catch (err) {
+    console.error("Errore recupero CV MCP:", err);
+  }
+
+  // Recupero sessione
+  try {
+    const sessionResponse = (await mcp.callTool({
+      name: "get-session-data",
+      arguments: { id: userId, number_session: sessionNumber },
+    })) as ToolResponse;
+
+    if (sessionResponse.content?.[0]?.text) {
+      sessionData = sessionResponse.content[0].text;
+    } else {
+      console.warn(`Sessione ${sessionNumber} non trovata per utente ${userId}`);
+    }
+  } catch (err) {
+    console.error("Errore recupero sessione MCP:", err);
+  }
+console.log("DEBUG - CV Base64:", cvBase64?.substring(0, 100) + "..."); // Mostra solo i primi 100 caratteri
+console.log("DEBUG - Session Data:", sessionData);
+
   return `Perfetto! Hai completato la prima parte dell'ikigai.
-Adesso passiamo ad alcune domande aggiuntive per conoscerti meglio.`;
+CV recuperato: ${cvBase64 ? "✅" : "❌"}
+Sessione recuperata: ${sessionData ? "✅" : "❌"}
+
+CHE LAVORO SCEGLI`;
 }
 
 
@@ -192,7 +253,7 @@ export async function chatbotLoopCompleted(
   const prevQuestion = session.flow[session.step].question;
   
   // Determina il tipo di domanda per il log
-  const questionType = session.step < 12 ? "ikigai" : "additional";
+  const questionType = session.step < 4 ? "ikigai" : "additional";
 
   console.log(" Salvataggio su Mongo:", {
     id: userId,
@@ -221,46 +282,36 @@ export async function chatbotLoopCompleted(
 
   session.answers.push(userInput);
 
-  // Prossima domanda
+// Prossima domanda
 session.step += 1;
 sessions.set(sessionKey, session);
 
 let nextMessage = "";
 
-// Se abbiamo appena finito le 12 domande ikigai
-if (session.step === 12) {
-  const transitionText = await getTransitionMessage();
+// Se abbiamo appena finito le 12 domande ikigai (cioè step == 4)
+if (session.step === 4) {
+  const transitionText = await getJobSuggestion(userId, sessionNumber);
 
-  // Salvataggio del messaggio di transizione su Mongo (come domanda/risposta)
-  try {
-    await mcp.callTool({
-      name: "save-session-data",
-      arguments: {
-        id: userId,
-        number_session: sessionNumber,
-        question: transitionText,        // Salviamo il testo come "domanda"
-        answer: userInput,                // Risposta alla 12ª domanda
-        path: path,
-      },
-    });
-  } catch (err) {
-    console.error("Errore salvataggio transizione MCP:", err);
-  }
+  // Non salviamo ancora su Mongo la risposta dell'utente precedente associata a getJobSuggestion,
+  // ma memorizziamo nel flow che la prossima domanda sarà getJobSuggestion.
+  session.flow.splice(session.step, 0, { question: transitionText });
+  sessions.set(sessionKey, session);
 
-  // Messaggio che l'utente vedrà subito dopo
-  nextMessage = `${transitionText} ${session.flow[session.step]?.question ?? ""}`;
+  // Mostriamo getJobSuggestion come domanda
+  nextMessage = transitionText;
+
 } else {
   // Normale passaggio di domanda
   nextMessage = session.flow[session.step]?.question ??
                "Ottimo, hai finito le domande ora ti do la conclusione.";
 }
 
-  console.log(` Step: ${session.step}/${session.flow.length} - Tipo: ${session.step <= 12 ? 'ikigai' : 'additional'}`);
+console.log(`Step: ${session.step}/${session.flow.length} - Tipo: ${session.step <= 4 ? 'ikigai' : 'additional'}`);
 
-  return {
-    message: nextMessage,
-    done: session.step >= session.flow.length,
-  };
+return {
+  message: nextMessage,
+  done: session.step >= session.flow.length,
+};
 }
 
 export async function chatbotLoopSimplified(
