@@ -10,11 +10,7 @@ import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { PdfDocument } from "../domain/resume.js";
 import type { User } from "../domain/user.ts";
 import type { Message, SessionDoc, QA } from "../domain/message.ts";
-<<<<<<< HEAD
-import type { Collection } from "mongodb";
-=======
 import { MongoClient, type Collection } from "mongodb";
->>>>>>> origin/main
 import { Session } from "node:inspector/promises";
 import { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
 

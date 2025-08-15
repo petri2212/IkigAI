@@ -301,11 +301,11 @@ Sessione: ${sessionData || "Non disponibile"}
 
   return `Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:\n\n${jobsText} \n\n Scegline uno, oppure chiedi maggiori informazioni`;
 }
-
+/*
 async function generateJobConclusion(
   userId: string,
   sessionNumber: string
-): Promise<string> {
+): /*Promise<string> {
   const mcp = await getMcpClient();
   try {
     // Recupera i dati della sessione
@@ -313,7 +313,8 @@ async function generateJobConclusion(
       name: "get-session-data",
       arguments: { id: userId, number_session: sessionNumber },
     })) as ToolResponse;
-
+    console.log("session number", sessionNumber )
+     console.log("userId", userId )
     if (!sessionResponse.content?.[0]?.text) {
       return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
     }
@@ -330,14 +331,10 @@ async function generateJobConclusion(
       responses: matches.map(([_, question, answer]) => ({ question, answer })),
     };
     /*
-    {
-      question:
-        "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
-    },
-    { question: "In che città vorresti lavorare?" },
-    { question: "Vorresti un lavoro part time o full time?" },
+     { question: "In che città vorresti lavorare?" },
+    { question: "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)" },
     { question: "Hai in mente qualche azienda specifica, digita il nome?" },
-    { question: "Quanto vorresti essere pagato?" },*/
+    { question: "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)" },
     // Estrai le risposte alle ultime 5 domande
     const jobQuestions = [
       "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
@@ -367,8 +364,8 @@ async function generateJobConclusion(
 console.log("DEBUG paese:", paese);
 console.log("DEBUG normalizeAnswer(paese):", normalizeAnswer(paese));
 console.log("DEBUG key usata per countryMap:", normalizeAnswer(paese).toLowerCase());
-*/
-    console.log("DEBUG SKILLS:", skills);
+
+    
     // Mappa il paese
     const countryMap: { [key: string]: string } = {
       italia: "it",
@@ -384,13 +381,13 @@ console.log("DEBUG key usata per countryMap:", normalizeAnswer(paese).toLowerCas
     };
     /*
 console.log("countryMap keys:", Object.keys(countryMap));
-console.log("checking france:", countryMap["france"]);*/
+console.log("checking france:", countryMap["france"]);
 
     const normalizedPaese = normalizeAnswer(paese).toLowerCase().trim();
     const countryCode = countryMap[normalizedPaese] ?? "it";
     /*
 console.log("DEBUG normalizedPaese:", normalizedPaese);
-console.log("DEBUG countryCode:", countryCode);*/
+console.log("DEBUG countryCode:", countryCode);
 
     // Normalizza gli altri campi
 
@@ -399,13 +396,14 @@ console.log("DEBUG countryCode:", countryCode);*/
     const companyArg = normalizeAnswer(azienda);
     const salaryArg = normalizeAnswer(stipendio);
     const skillsArg = normalizeAnswer(skills);
-    /*
+
+console.log("DEBUG SKILLS:", skills);   
 console.log("DEBUG countryCode:", countryCode);
 console.log("DEBUG locationArg:", locationArg);
 console.log("DEBUG jobTypeArg:", jobTypeArg);
 console.log("DEBUG companyArg:", companyArg);
 console.log("DEBUG salaryArg:", salaryArg);
-*/
+
     // Chiama il tool MCP
     const jobsResponse = (await mcp.callTool({
       name: "search-jobs",
@@ -433,6 +431,124 @@ console.log("DEBUG salaryArg:", salaryArg);
       //return `Errore parsing jobs.\nDEBUG RAW RESPONSE: ${responseText}`;
       console.log("DIO NELLO L'API: ", responseText);
     }
+    Promise<string> {
+  const mcp = await getMcpClient();
+  try {
+    // Recupera i dati della sessione
+    const sessionResponse = (await mcp.callTool({
+      name: "get-session-data",
+      arguments: { id: userId, number_session: sessionNumber },
+    })) as ToolResponse;
+
+    console.log("session number", sessionNumber);
+    console.log("userId", userId);
+
+    if (!sessionResponse.content?.[0]?.text) {
+      return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
+    }
+
+    // Parse JSON del primo tool
+    const sessionDataRaw = JSON.parse(sessionResponse.content[0].text);
+
+    if (!sessionDataRaw.success) {
+      return `Errore: ${sessionDataRaw.error}`;
+    }
+
+    const responses = sessionDataRaw.session.q_and_a.map((entry: any) => ({
+      question: entry.question,
+      answer: entry.answer,
+    }));
+
+    // Domande da estrarre
+    const jobQuestions = [
+      "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
+      "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
+      "In che città vorresti lavorare?",
+      "Vorresti un lavoro part time o full time?",
+      "Hai in mente qualche azienda specifica, digita il nome?",
+      "Quanto vorresti essere pagato?",
+    ];
+
+    const jobAnswers = jobQuestions.map((question) => {
+      const found = responses.find((r: any) =>
+        r.question.includes(question.substring(0, 20))
+      );
+      return found?.answer || "Non specificato";
+    });
+
+    const [skills, paese, citta, tipoContratto, azienda, stipendio] =
+      jobAnswers;
+
+    // Funzione helper per normalizzare le risposte "vuote"
+    function normalizeAnswer(answer: string) {
+      const emptyValues = ["non specificato", "non lo so", "no", "nessuna", ""];
+      return emptyValues.includes(answer.trim().toLowerCase()) ? "" : answer;
+    }
+
+    // Mappa il paese
+    const countryMap: { [key: string]: string } = {
+      italia: "it",
+      italy: "it",
+      francia: "fr",
+      france: "fr",
+      inghilterra: "gb",
+      england: "gb",
+      germania: "de",
+      germany: "de",
+      polonia: "pl",
+      poland: "pl",
+    };
+
+    const normalizedPaese = normalizeAnswer(paese).toLowerCase().trim();
+    const countryCode = countryMap[normalizedPaese] ?? "it";
+
+    // Normalizza gli altri campi
+    const locationArg = normalizeAnswer(citta);
+    const jobTypeArg = normalizeAnswer(tipoContratto);
+    const companyArg = normalizeAnswer(azienda);
+    const salaryArg = normalizeAnswer(stipendio);
+    const skillsArg = normalizeAnswer(skills);
+
+    console.log("DEBUG SKILLS:", skillsArg);
+    console.log("DEBUG countryCode:", countryCode);
+    console.log("DEBUG locationArg:", locationArg);
+    console.log("DEBUG jobTypeArg:", jobTypeArg);
+    console.log("DEBUG companyArg:", companyArg);
+    console.log("DEBUG salaryArg:", salaryArg);
+
+    // Chiama il tool MCP
+    const jobsResponse = (await mcp.callTool({
+      name: "search-jobs",
+      arguments: {
+        country: countryCode,
+        location: locationArg,
+        jobType: jobTypeArg,
+        company: companyArg,
+        salary: salaryArg,
+        skills: skillsArg,
+      },
+    })) as ToolResponse;
+
+    if (!jobsResponse.content?.[0]?.text) {
+      return "Non sono riuscito a trovare lavori corrispondenti ai tuoi criteri.";
+    }
+
+    const responseText = jobsResponse.content?.[0]?.text || "";
+    let jobs = [];
+    try {
+      jobs = JSON.parse(responseText.replace(/^DEBUG URL:.*\n/, ""));
+      console.log("DEBUG JOBS API: ", responseText);
+    } catch (err) {
+      console.log("DEBUG RAW JOBS RESPONSE: ", responseText);
+    }
+
+    // Puoi restituire una sintesi o il JSON
+    return JSON.stringify(jobs, null, 2);
+
+  } catch (err) {
+    console.error("Errore nel recupero sessione:", err);
+    return "Errore durante la generazione della conclusione lavori.";
+  }
 
     // Genera la conclusione con AI
     const prompt = `
@@ -483,7 +599,168 @@ Mantieni un tono professionale ma amichevole. Limita a 400 parole.
     console.error("Errore generazione conclusione lavori:", err);
     return "Si è verificato un errore durante la ricerca dei lavori.";
   }
+}*/
+
+async function generateJobConclusion(
+  userId: string,
+  sessionNumber: string
+): Promise<string> {
+  const mcp = await getMcpClient();
+  try {
+    // Recupera i dati della sessione
+    const sessionResponse = (await mcp.callTool({
+      name: "get-session-data",
+      arguments: { id: userId, number_session: sessionNumber },
+    })) as ToolResponse;
+
+    console.log("session number", sessionNumber);
+    console.log("userId", userId);
+
+    if (!sessionResponse.content?.[0]?.text) {
+      return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
+    }
+
+    // Parsing JSON della sessione
+    const sessionDataRaw = JSON.parse(sessionResponse.content[0].text);
+    const responses = sessionDataRaw.session.q_and_a.map((entry: any) => ({
+      question: entry.question,
+      answer: entry.answer,
+    }));
+
+    // Domande di interesse per lavori
+    const jobQuestions = [
+      "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
+      "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
+      "In che città vorresti lavorare?",
+      "Vorresti un lavoro part time o full time?",
+      "Hai in mente qualche azienda specifica, digita il nome?",
+      "Quanto vorresti essere pagato?",
+    ];
+
+    const jobAnswers = jobQuestions.map((question) => {
+      const found = responses.find((r: any) =>
+        r.question.includes(question.substring(0, 20))
+      );
+      return found?.answer || "Non specificato";
+    });
+
+    const [skills, paese, citta, tipoContratto, azienda, stipendio] = jobAnswers;
+
+    // Helper per normalizzare risposte vuote
+    const normalizeAnswer = (answer: string) => {
+      const emptyValues = ["non specificato", "non lo so", "no", "nessuna", ""];
+      return emptyValues.includes(answer.trim().toLowerCase()) ? "" : answer;
+    };
+
+    // Mapping paesi
+    const countryMap: { [key: string]: string } = {
+      italia: "it",
+      italy: "it",
+      francia: "fr",
+      france: "fr",
+      inghilterra: "gb",
+      england: "gb",
+      germania: "de",
+      germany: "de",
+      polonia: "pl",
+      poland: "pl",
+    };
+
+    const normalizedPaese = normalizeAnswer(paese).toLowerCase().trim();
+    const countryCode = countryMap[normalizedPaese] ?? "it";
+
+    const locationArg = normalizeAnswer(citta);
+    const jobTypeArg = normalizeAnswer(tipoContratto);
+    const companyArg = normalizeAnswer(azienda);
+    const salaryArg = normalizeAnswer(stipendio);
+    const skillsArg = normalizeAnswer(skills);
+
+    console.log("DEBUG SKILLS:", skillsArg);
+    console.log("DEBUG countryCode:", countryCode);
+    console.log("DEBUG locationArg:", locationArg);
+    console.log("DEBUG jobTypeArg:", jobTypeArg);
+    console.log("DEBUG companyArg:", companyArg);
+    console.log("DEBUG salaryArg:", salaryArg);
+
+    // Chiamata tool MCP per ricerca lavori
+    const jobsResponse = (await mcp.callTool({
+      name: "search-jobs",
+      arguments: {
+        country: countryCode,
+        location: locationArg,
+        jobType: jobTypeArg,
+        company: companyArg,
+        salary: salaryArg,
+        skills: skillsArg,
+      },
+    })) as ToolResponse;
+
+    if (!jobsResponse.content?.[0]?.text) {
+      return "Non sono riuscito a trovare lavori corrispondenti ai tuoi criteri.";
+    }
+
+    const responseText = jobsResponse.content?.[0]?.text || "";
+    let jobs: any[] = [];
+    try {
+      jobs = JSON.parse(responseText.replace(/^DEBUG URL:.*\n/, ""));
+      console.log("DEBUG JOBS API:", jobs);
+    } catch (err) {
+      console.log("DEBUG RAW JOBS RESPONSE:", responseText);
+    }
+
+    // Generazione conclusione con AI
+    const prompt = `
+Sei un career coach esperto. Basandoti sui seguenti dati:
+
+PREFERENZE UTENTE:
+- Paese: ${paese}
+- Città: ${citta}  
+- Tipo contratto: ${tipoContratto}
+- Azienda preferita: ${azienda}
+- Stipendio desiderato: ${stipendio}
+
+LAVORI TROVATI:
+${jobs
+      .map(
+        (j) => `Titolo: ${j.title}
+Azienda: ${j.company}
+Luogo: ${j.location}
+Contratto: ${j.contract_type}
+Stipendio: ${j.salary_min} - ${j.salary_max}
+Descrizione: ${j.description}
+URL: ${j.url}`
+      )
+      .join("\n\n")}
+
+Scrivi una conclusione professionale che:
+1. Riassuma le preferenze dell'utente
+2. Presenti i lavori trovati in modo accattivante
+3. Dia consigli pratici per candidarsi
+4. Motivi l'utente nel percorso professionale
+
+Mantieni un tono professionale ma amichevole. Limita a 400 parole.
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "Sei un career coach esperto." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 600,
+      temperature: 0.7,
+    });
+
+    return (
+      completion.choices?.[0]?.message?.content?.trim() ??
+      "Congratulazioni per aver completato il percorso Ikigai!"
+    );
+  } catch (err) {
+    console.error("Errore generazione conclusione lavori:", err);
+    return "Si è verificato un errore durante la ricerca dei lavori.";
+  }
 }
+
 
 export async function chatbotLoopCompleted(
   userInput: string,

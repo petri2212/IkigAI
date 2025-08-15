@@ -54,7 +54,7 @@ export default function ChatPage() {
 
   // Flow
   const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
-    "askCV"
+    "waitingForCV"
   );
   const [userSessions, setUserSessions] = useState<Session[]>([]);
 
@@ -143,7 +143,7 @@ export default function ChatPage() {
     setMessages([]);
   };
 
-  const handleSelectSession = (sessionId: string) => {
+  const handleSelectSession = (sessionID: string) => {
     // Aggiorna sessionId corrente, pulisce messaggi e refresha la history
     setMessages([]);
     setHasStarted(false);
@@ -178,9 +178,11 @@ export default function ChatPage() {
 
       if (stage === "waitingForCV") {
         setStage("chatting");
+        console.log("sessionID")
         const botResponse = await mockBotResponse("__INIT__", uid, sessionID, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
+        console.log("sessionID")
         const botResponse = await mockBotResponse(input.trim(), uid, sessionID, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
@@ -435,7 +437,7 @@ export default function ChatPage() {
                     const file = e.target.files[0];
                     if (uid && sessionID) {
                       try {
-                        const result = await handlePdfUpload(file, uid, sessionId);
+                        const result = await handlePdfUpload(file, uid, sessionID);
                         if (result.success) {
                           setMessages((prev) => [
                             ...prev,
