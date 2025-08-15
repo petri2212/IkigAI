@@ -19,14 +19,11 @@ import { FaArrowCircleRight, FaUser } from "react-icons/fa";
 import { HiX } from "react-icons/hi";
 // Typing animation
 import { Typewriter } from 'react-simple-typewriter'
-import createNewSession from "./pathcard";
-import { Session } from "../api/getUserSessions/route";
-import ChatHistory, { ChatHistoryRef } from "./chatHistory";
-import SessionMessages from "./sessionMessages";
+import path from "node:path";
 
 const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600"], 
 });
 
 type Message = {
@@ -34,44 +31,44 @@ type Message = {
   text: string;
 };
 
+type ChatHistoryItem = {
+  id: string;
+  title: string;
+};
+
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const path = searchParams.get("path");
-  const sessionIdparam = searchParams.get("sessionId");
   // Path determination
   const isSimplified = path === "simplified";
-  const sessionID = sessionIdparam;
-  const historyRef = useRef<ChatHistoryRef>(null);
+
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
-  //const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
-
+  // Chat history dummy
+  const [chatHistory] = useState<ChatHistoryItem[]>([
+    { id: "1", title: "Chat with IkigAI 1" },
+    { id: "2", title: "Chat with IkigAI 2" },
+  ]);
   // Flow
   const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
     "askCV"
   );
-  const [userSessions, setUserSessions] = useState<Session[]>([]);
-
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-
   // Chat messages
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [isFirst, setIsFirst] = useState(true);
-  
-
 
   // Main colors based on path
   const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
@@ -92,22 +89,43 @@ export default function ChatPage() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        const token = await user.getIdToken();
         setUid(user.uid);
+        setSessionToken(token);
 
-
+        const newSessionId = uuidv4();
+        setSessionId(newSessionId);
+        console.log("🟢 Nuova sessione generata:", newSessionId);
       } else {
         setUid(null);
-
+        setSessionToken(null);
+        setSessionId(null);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
+  // First Bot Message
+  useEffect(() => {
+    if (!uid) return;
+
+    const timer = setTimeout(() => {
+      setMessages([
+        {
+          sender: "bot",
+          text: "Hi! Do you have a CV to upload? You can upload a PDF or just type your answer here.",
+        },
+      ]);
+      setStage("waitingForCV");
+    }, 3100);
+
+    return () => clearTimeout(timer);
+  }, [uid]);
+
   // Animation Effects
   useEffect(() => {
-    if (!hasStarted && isFirst) {
-      setIsFirst(false);
+    if (!hasStarted) {
       const timer0 = setTimeout(() => {
         setFadeOut(true);
       }, 2500);
@@ -122,66 +140,28 @@ export default function ChatPage() {
     }
   }, [hasStarted]);
 
-  useEffect(() => {
-    if (!hasStarted && !isFirst) {
-      setIsFirst(false);
-      const timer0 = setTimeout(() => {
-        setFadeOut(true);
-      }, 200);
-      const timer1 = setTimeout(() => {
-        setHasStarted(true);
-      }, 900);
-
-      return () => {
-        clearTimeout(timer0);
-        clearTimeout(timer1);
-      };
-    }
-  }, [hasStarted]);
-
-  const handleClick = () => {
-    setMessages([]);
-  };
-
-  const handleSelectSession = (sessionId: string) => {
-    // Aggiorna sessionId corrente, pulisce messaggi e refresha la history
-    setMessages([]);
-    setHasStarted(false);
-    historyRef.current?.refresh();
-  };
-
   // Hadle Submit of the input
-  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
-
     setInput("");
-
-    // Reimposta il focus dopo il re-render
-    requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (el) {
-        el.focus();
-        // caret alla fine (utile su mobile)
-        const len = el.value.length;
-        el.setSelectionRange(len, len);
-      }
-    });
-
     setIsLoading(true);
 
     try {
       if (!uid) return;
 
       if (stage === "waitingForCV") {
+        // User has answered at the CV question in chat
         setStage("chatting");
-        const botResponse = await mockBotResponse("__INIT__", uid, sessionID, path);
+        // Bot proceeds with AI questions
+        const botResponse = await mockBotResponse("__INIT__", uid, sessionId, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionID, path);
+        // Normal Chatting , continue with mockBotResponse
+       const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path );
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -194,26 +174,8 @@ export default function ChatPage() {
     }
   };
 
-
-
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-
   const handleNewChat = () => {
-    historyRef.current?.refresh();
     setMessages([]);
-    setHasStarted(false);
   };
 
   // UI
@@ -265,49 +227,76 @@ export default function ChatPage() {
         </div>
 
         {/* New Chat Button */}
-        <div className="relative inline-block" ref={menuRef}>
-          {/* Pulsante apertura menu */}
+        {sidebarOpen ? (
           <button
-            type="button"
-            onClick={() => setIsOpen((prev) => !prev)}
-            className="w-67 ml-2 px-3 py-2 flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
+            onClick={handleNewChat}
+            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
             style={{ color: accentColor }}
           >
             <VscNewFile className="text-2xl" />
             New Chat
           </button>
+        ) : (
+          <button
+            onClick={handleNewChat}
+            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
+            style={{ color: accentColor }}
+          >
+            <VscNewFile className="text-2xl" />
+          </button>
+        )}
 
-          {/* Menu */}
-          {isOpen && (
-            <div className="w-67 ml-2 absolute left-0 mt-1 bg-transparent backdrop-blur-[2px] border rounded-lg shadow-lg z-50 overflow-hidden">
-              <Link
-                href={{
-                  pathname: "/protected/career-match",
-                  query: { path: "simplified", sessionId: createNewSession() },
-                }}
-                onClick={handleNewChat}
-                className="block flex justify-center px-4 py-2 hover:bg-blue-100/80 text-blue-700"
-              >
-                Simplified
-              </Link>
-              <Link
-                href={{
-                  pathname: "/protected/career-match",
-                  query: { path: "completed", sessionId: createNewSession() },
-                }}
-                onClick={handleNewChat}
-                className="block flex justify-center px-4 py-2 hover:bg-green-100/80 text-green-700"
-              >
-                Completed
-              </Link>
-            </div>
+        {/* Chat History */}
+        <nav className="flex-1 overflow-y-auto px-2 space-y-1">
+          {chatHistory.length === 0 && sidebarOpen && (
+            <p className="text-gray-400 italic px-2 mt-4">No chat history</p>
           )}
-        </div>
+          {sidebarOpen ? (
+            <p className="text-gray-400 italic px-3 mt-20">Chat</p>
+          ) : (
+            <p></p>
+          )}
+          {chatHistory.map(
+            (chat) =>
+              sidebarOpen && (
+                <button
+                  key={chat.id}
+                  className="w-full text-left px-1 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-100 flex items-center gap-4"
+                  style={{ color: accentColor }}
+                  onClick={() =>
+                    alert(`Switch to chat ${chat.title} (implement later)`)
+                  }
+                >
 
+                  {/* History Chat Titles*/}
+                  <div className="flex gap-27">
+                    <span
+                      className={`overflow-hidden whitespace-nowrap ease-in-out 
+                        ${sidebarOpen ? "opacity-100 max-w-full ml-2" : "opacity-0 max-w-0" }
+                      `}
+                    >
+                      {chat.title}
+                    </span>
+                    {/* Colored Dots */}
+                    <span>
+                      {path && (
+                        <span
+                          className="inline-block rounded-full"
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: accentBg,
+                            border: `1px solid ${accentColor}`,
+                          }}
+                        />
+                      )}
+                    </span>
+                  </div>
 
-        <div onClick={handleClick} style={{ cursor: "pointer" }}>
-          <ChatHistory uid={uid!} ref={historyRef} onSelectSession={handleSelectSession} />
-        </div>
+                </button>
+              )
+          )}
+        </nav>
       </aside>
 
       {/* MAIN CHAT AREA */}
@@ -342,71 +331,86 @@ export default function ChatPage() {
         </div>
 
         {/* MESSAGES AREA */}
-        <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative">
-          <div className="max-w-[60%] mx-auto space-y-4">
-            {!hasStarted ? (
-              <div
-                className={`flex-1 flex items-start justify-center transition-opacity duration-400 mt-[40%]`}
-                style={{ opacity: fadeOut ? 0 : 1 }}
-              >
-                <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg text-4xl font-semibold mb-4 ">
-                  <Typewriter
-                    words={['Welcome to IkigAI']}
-                    loop={true}
-                    typeSpeed={100}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <SessionMessages uid={uid!} sessionId={sessionID!} />
-                {messages.map((msg, idx) => (
+        {hasStarted && (
+          <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300">
+            <div className="max-w-[60%] mx-auto space-y-4">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                    }`}
+                >
+                  {/* Icons */}
+                  <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                    {msg.sender === "bot" ? (
+                      <Image
+                        src="/images/logo3.png"
+                        alt="IkigAI Logo"
+                        width={24}
+                        height={20}
+                        priority
+                      />
+                    ) : (
+                      <FaUser size={16} />
+                    )}
+                  </div>
+
+                  {/* Print Output */}
                   <div
-                    key={idx}
-                    className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                    className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
+                    style={{
+                      backgroundColor: msg.sender === "user" ? lightBG : "rgba(255, 255, 255, 0.4)",
+                      color: "#111827",
+                      maxWidth: "75%",
+                    }}
                   >
-                    <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                      {msg.sender === "bot" ? (
-                        <Image src="/images/logo3.png" alt="IkigAI Logo" width={24} height={20} priority />
-                      ) : (
-                        <FaUser size={16} />
-                      )}
-                    </div>
-
-                    <div
-                      className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
-                      style={{
-                        backgroundColor: msg.sender === "user" ? "#e5e7eb" : "rgba(255, 255, 255, 0.4)",
-                        color: "#111827",
-                        maxWidth: "75%",
-                      }}
-                    >
-                      <ReactMarkdown>{msg.text}</ReactMarkdown>
-                    </div>
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="flex items-start gap-3 animate-pulse">
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                      <Image src="/images/logo3.png" alt="IkigAI Logo" width={16} height={16} priority />
-                    </div>
-                    <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
-                      Typing...
-                    </div>
+                </div>
+              ))}
+              {/* Animation During IkigAI Response*/}
+              {isLoading && (
+                <div className="flex items-start gap-3 animate-pulse">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                    <Image
+                      src="/images/logo3.png"
+                      alt="IkigAI Logo"
+                      width={16}
+                      height={16}
+                      priority
+                    />
                   </div>
-                )}
+                  <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
+                    Typing...
+                  </div>
+                </div>
+              )}
 
-                <div ref={messagesEndRef} />
-              </div>
-            )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
+        )}
+
+        {!hasStarted && (
+          <div
+            className={`flex-1 flex items-start justify-center transition-opacity duration-400`}
+            style={{ opacity: fadeOut ? 0 : 1 }}
+          >
+            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky top-[40%] text-4xl font-semibold mb-4 ">
+              <Typewriter
+                words={['Welcome to IkigAI']}
+                loop={true}
+                typeSpeed={100}
+              />
+            </div>
+          </div>
+        )}
 
         {/* INPUT AREA */}
         <form
           onSubmit={handleSubmit}
-          className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-450
-                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[25%] translate-y"}
+          className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
+                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[35%] translate-y" }
                     `}
           style={{
             borderColor: accentColor,
@@ -433,7 +437,7 @@ export default function ChatPage() {
                 onChange={async (e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];
-                    if (uid && sessionID) {
+                    if (uid && sessionId) {
                       try {
                         const result = await handlePdfUpload(file, uid, sessionId);
                         if (result.success) {
@@ -447,7 +451,7 @@ export default function ChatPage() {
                             const botResponse = await mockBotResponse(
                               "__INIT__",
                               uid,
-                              sessionID,
+                              sessionId,
                               path
                             );
                             setMessages((prev) => [
@@ -489,8 +493,6 @@ export default function ChatPage() {
 
             {/* Textarea */}
             <textarea
-              ref={textareaRef}
-              autoFocus
               placeholder="Type your message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -500,6 +502,7 @@ export default function ChatPage() {
                   handleSubmit(e);
                 }
               }}
+              disabled={isLoading}
               className="w-full border rounded-lg pl-14 pr-14 py-2 focus:outline-none focus:ring-2 font-mono text-base resize-none whitespace-pre-wrap"
               rows={3}
               style={{
