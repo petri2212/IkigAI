@@ -10,8 +10,9 @@ import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { PdfDocument } from "../domain/resume.js";
 import type { User } from "../domain/user.ts";
 import type { Message, SessionDoc, QA } from "../domain/message.ts";
-import type { Collection } from "mongodb";
+import { MongoClient, type Collection } from "mongodb";
 import { Session } from "node:inspector/promises";
+import { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
 
 const server = new McpServer({
   name: "test",
@@ -22,6 +23,9 @@ const server = new McpServer({
     prompts: {},
   },
 });
+
+
+
 /*
 server.resource(
   "users",
@@ -394,9 +398,8 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Errore: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+            text: `Errore: ${error instanceof Error ? error.message : "Unknown error"
+              }`,
           },
         ],
       };
@@ -543,9 +546,8 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+            text: `Error: ${error instanceof Error ? error.message : "Unknown error"
+              }`,
           },
         ],
       };
@@ -693,24 +695,17 @@ server.tool(
   {
     title: "Get Session Data",
     readOnlyHint: true,
-    destructiveHint: false,
     idempotentHint: true,
-    openWorldHint: true,
   },
   async ({ id, number_session }) => {
-    const { MongoClient } = await import("mongodb");
-
     const mongoUri = process.env.MONGODB_URI;
-    if (!mongoUri) {
-      throw new Error("MONGODB_URI environment variable is not set");
-    }
+    if (!mongoUri) throw new Error("MONGODB_URI environment variable is not set");
 
     const client = new MongoClient(mongoUri);
 
     try {
       await client.connect();
-      const db = client.db("Main");
-      const collection = db.collection<Message>("Sessions");
+      const collection = client.db("Main").collection("Sessions");
 
       const session = await collection.findOne({ id, number_session });
 
@@ -719,37 +714,38 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `No session found for user "${id}" with session number ${number_session}.`,
+              text: JSON.stringify({
+                success: false,
+                error: `No session found for user "${id}" with session number ${number_session}.`,
+                q_and_a: [] as QAEntry[],
+              }),
+              _meta: {},
             },
           ],
         };
       }
 
-      const formattedQandA = (session.q_and_a ?? [])
-        .map(
-          (entry: any, index: number) =>
-            `${index + 1}. Q: ${entry.question}\n   A: ${entry.answer}`
-        )
-        .join("\n\n");
+      const q_and_a: QAEntry[] = (session.q_and_a || []).map((entry: any) => ({
+        question: entry.question,
+        answer: entry.answer,
+        timestamp: entry.timestamp ? new Date(entry.timestamp).toISOString() : new Date().toISOString(),
+      }));
+
+      const sessionData: SessionData = {
+        id: session.id,
+        number_session: session.number_session,
+        q_and_a,
+      };
 
       return {
         content: [
           {
             type: "text",
-            text: `Session ${number_session} for user "${id}":\n\n${
-              formattedQandA || "No Q&A entries found."
-            }`,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error retrieving session: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+            text: JSON.stringify({
+              success: true,
+              session: sessionData,
+            }),
+            _meta: {},
           },
         ],
       };
@@ -758,6 +754,52 @@ server.tool(
     }
   }
 );
+
+// get all user sessions
+server.tool(
+  "get-all-user-sessions",
+  "Retrieve all Q&A sessions for a specific user",
+  { id: z.string() },
+  { title: "Get All User Sessions", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  async ({ id }) => {
+    const { MongoClient } = await import("mongodb");
+    const client = new MongoClient(process.env.MONGODB_URI!);
+
+    try {
+      await client.connect();
+      const collection = client.db("Main").collection("Sessions");
+
+      const sessions = await collection.find({ id }).sort({ createdAt: 1 }).toArray();
+
+      if (!sessions.length) {
+        return { content: [{ type: "text" as const, text: `No sessions found for user "${id}".`, _meta: {} }] };
+      }
+
+      const content = sessions.map((session) => ({
+        type: "text" as const,
+        text: JSON.stringify({
+          _id: session._id.toString(),
+          id: session.id,
+          number_session: session.number_session,
+          createdAt: session.createdAt,
+          path: session.path || "unknown",
+          q_and_a: (session.q_and_a || []).map((qa: any) => ({
+            question: qa.question,
+            answer: qa.answer,
+            timestamp: qa.timestamp || new Date().toISOString(),
+          })),
+        }),
+        _meta: {},
+      }));
+
+      return { content };
+    } finally {
+      await client.close();
+    }
+  }
+);
+
+
 
 server.prompt(
   "generate-fake-user",
