@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { PdfDocument } from "../domain/resume.js";
 import type { User } from "../domain/user.ts";
-import type { Message, SessionDoc, QA} from "../domain/message.ts";
+import type { Message, SessionDoc, QA } from "../domain/message.ts";
 import type { Collection } from "mongodb";
 import { Session } from "node:inspector/promises";
 
@@ -135,6 +135,124 @@ server.resource(
     };
   }
 );
+// tool per prendere un lavoro specifico
+
+server.tool(
+  "search-jobs",
+  "Search for jobs based on user preferences",
+  {
+    country: z.string().default("it"),
+    location: z.string().default(""),
+    jobType: z.string().default(""),
+    company: z.string().default(""),
+    salary: z.string().default(""),
+    skills: z.string().default("javascript developer"),
+  },
+  {
+    title: "Search Jobs",
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
+  async ({ country, location, jobType, company, salary, skills }) => {
+    const appId = process.env.ADZUNA_APP_ID;
+    const appKey = process.env.ADZUNA_APP_KEY;
+    if (!appId || !appKey)
+      throw new Error("ADZUNA_APP_ID or ADZUNA_APP_KEY not set");
+
+    const locationArg = location.toLowerCase().includes("non") ? "" : location;
+    const jobTypeArg = jobType.toLowerCase().includes("non") ? "" : jobType;
+    const companyArg = company.toLowerCase().includes("non") ? "" : company;
+    const salaryArg = salary.toLowerCase().includes("non") ? "" : salary;
+
+    let query = skills || "javascript developer";
+    if (companyArg) query += ` ${companyArg}`;
+
+    const clean = (str: string) => str.trim().replace(/\s+/g, " ");
+
+    const baseUrl = `https://api.adzuna.com/v1/api/jobs/${country}/search/1`;
+    const params = new URLSearchParams({
+      app_id: appId,
+      app_key: appKey,
+      results_per_page: "10",
+      what: clean(query),
+      where: clean(locationArg || ""),
+    });
+
+    if (jobTypeArg) {
+      if (jobTypeArg.toLowerCase().includes("part")) {
+        params.set("part_time", "1");
+      } else if (jobTypeArg.toLowerCase().includes("full")) {
+        params.set("full_time", "1");
+      }
+    }
+
+    if (salaryArg && !isNaN(Number(salaryArg))) {
+      params.set("salary_min", String(Number(salaryArg)));
+    }
+
+    const url = `${baseUrl}?${params.toString()}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Errore nella ricerca lavori: ${response.statusText}\nDEBUG URL: ${url}`,
+            },
+          ],
+        };
+      }
+
+      const data = await response.json();
+      if (!data.results || data.results.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Non sono stati trovati lavori corrispondenti ai criteri.\nDEBUG URL: ${url}`,
+            },
+          ],
+        };
+      }
+
+      const jobs = data.results.map((job: any) => ({
+        title: job.title,
+        company: job.company?.display_name,
+        location: job.location?.display_name,
+        description: job.description
+          ? job.description.replace(/\s+/g, " ").substring(0, 200) + "..."
+          : "",
+        contract_type: job.contract_type ?? "non specificato",
+        salary_min: job.salary_min ?? "non specificato",
+        salary_max: job.salary_max ?? "non specificato",
+        url: job.redirect_url,
+      }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `DEBUG URL: ${url}\n${JSON.stringify(jobs, null, 2)}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Errore nella ricerca lavori: ${err}\nDEBUG URL: ${url}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
 /*
 server.tool(
   "create-user",
@@ -227,9 +345,9 @@ server.tool(
   "save-pdf-to-mongo",
   "Save a local PDF file to MongoDB",
   {
-    id: z.string(),       // unique id of the user
-    pdf: z.string(),      // base64 encoded PDF
-    session: z.string(),  // session number or identifier
+    id: z.string(), // unique id of the user
+    pdf: z.string(), // base64 encoded PDF
+    session: z.string(), // session number or identifier
   },
   {
     title: "Save PDF to MongoDB",
@@ -303,7 +421,7 @@ server.tool(
     idempotentHint: true,
     openWorldHint: true,
   },
-  async ({ id, session}) => {
+  async ({ id, session }) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -317,15 +435,35 @@ server.tool(
       const db = client.db("Main");
       const collection = db.collection<PdfDocument>("CVs");
 
-      const doc = await collection.findOne({ id , session }); // id is string
+      const doc = await collection.findOne({ id, session }); // id is string
 
       if (!doc) {
         return {
-          content: [{ type: "text", text: `PDF with ID ${id} and session ${session} don't found.` }],
+          content: [
+            {
+              type: "text",
+              text: `PDF with ID ${id} and session ${session} don't found.`,
+            },
+          ],
         };
       }
-      const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept
+      //const buffer = doc.file instanceof Buffer ? doc.file : doc.file.buffer; // i have to do in this way because BSON bynary dont accept
       // parameters on to string
+
+      let buffer: Buffer;
+
+      if (doc.file instanceof Buffer) {
+        buffer = doc.file;
+      } else if (doc.file?.buffer) {
+        // Se è ArrayBuffer, convertilo
+        buffer = Buffer.from(doc.file.buffer);
+      } else if (typeof doc.file === "string") {
+        // Se per qualche record vecchio è un path
+        const fs = await import("fs");
+        buffer = fs.readFileSync(doc.file);
+      } else {
+        throw new Error("Formato file non supportato");
+      }
 
       // Then convert to base64:
       const base64Pdf = buffer.toString("base64");
@@ -462,7 +600,7 @@ server.tool(
     idempotentHint: false,
     openWorldHint: true,
   },
-  async ({ id, number_session, question, answer, path}) => {
+  async ({ id, number_session, question, answer, path }) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -574,7 +712,7 @@ server.tool(
       const db = client.db("Main");
       const collection = db.collection<Message>("Sessions");
 
-      const session = await collection.findOne({id, number_session });
+      const session = await collection.findOne({ id, number_session });
 
       if (!session) {
         return {
@@ -640,7 +778,6 @@ server.prompt(
     };
   }
 );
-
 
 async function main() {
   // try {
