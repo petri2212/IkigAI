@@ -19,11 +19,9 @@ import { FaArrowCircleRight, FaUser } from "react-icons/fa";
 import { HiX } from "react-icons/hi";
 // Typing animation
 import { Typewriter } from 'react-simple-typewriter'
-import path from "node:path";
-import { sendFirstBotMessage } from '@/app/components/firstMessage'
 import createNewSession from "./pathcard";
 import { Session } from "../api/getUserSessions/route";
-import ChatHistory from "./chatHistory";
+import ChatHistory, { ChatHistoryRef } from "./chatHistory";
 import SessionMessages from "./sessionMessages";
 
 const manrope = Manrope({
@@ -44,7 +42,7 @@ export default function ChatPage() {
   // Path determination
   const isSimplified = path === "simplified";
   const sessionID = sessionIdparam;
-
+  const historyRef = useRef<ChatHistoryRef>(null);
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
   //const [sessionId, setSessionId] = useState<string | null>(null);
@@ -72,6 +70,7 @@ export default function ChatPage() {
   const [hovered, setHovered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isFirst, setIsFirst] = useState(true);
+  
 
 
   // Main colors based on path
@@ -104,23 +103,6 @@ export default function ChatPage() {
 
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (!uid) return;
-
-    const fetchSessions = async () => {
-      try {
-        const res = await fetch(`/api/getUserSessions?uid=${uid}`);
-        const data = await res.json();
-        setUserSessions(data.sessions || []);
-      } catch (err) {
-        console.error("Errore fetch sessioni:", err);
-      }
-    };
-
-    fetchSessions();
-  }, [uid]);
-
 
   // Animation Effects
   useEffect(() => {
@@ -159,6 +141,13 @@ export default function ChatPage() {
 
   const handleClick = () => {
     setMessages([]);
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    // Aggiorna sessionId corrente, pulisce messaggi e refresha la history
+    setMessages([]);
+    setHasStarted(false);
+    historyRef.current?.refresh();
   };
 
   // Hadle Submit of the input
@@ -222,6 +211,7 @@ export default function ChatPage() {
 
 
   const handleNewChat = () => {
+    historyRef.current?.refresh();
     setMessages([]);
     setHasStarted(false);
   };
@@ -316,7 +306,7 @@ export default function ChatPage() {
 
 
         <div onClick={handleClick} style={{ cursor: "pointer" }}>
-          <ChatHistory uid={uid!} />
+          <ChatHistory uid={uid!} ref={historyRef} onSelectSession={handleSelectSession} />
         </div>
       </aside>
 
@@ -352,53 +342,65 @@ export default function ChatPage() {
         </div>
 
         {/* MESSAGES AREA */}
-
         <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative">
           <div className="max-w-[60%] mx-auto space-y-4">
-            <SessionMessages uid={uid!} sessionId={sessionID!} />
-            {messages.map((msg, idx) => (
+            {!hasStarted ? (
               <div
-                key={idx}
-                className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                className={`flex-1 flex items-start justify-center transition-opacity duration-400 mt-[40%]`}
+                style={{ opacity: fadeOut ? 0 : 1 }}
               >
-                <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                  {msg.sender === "bot" ? (
-                    <Image src="/images/logo3.png" alt="IkigAI Logo" width={24} height={20} priority />
-                  ) : (
-                    <FaUser size={16} />
-                  )}
-                </div>
-
-                <div
-                  className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
-                  style={{
-                    backgroundColor: msg.sender === "user" ? "#e5e7eb" : "rgba(255, 255, 255, 0.4)",
-                    color: "#111827",
-                    maxWidth: "75%",
-                  }}
-                >
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg text-4xl font-semibold mb-4 ">
+                  <Typewriter
+                    words={['Welcome to IkigAI']}
+                    loop={true}
+                    typeSpeed={100}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-          <div ref={messagesEndRef} />
-        </div>
+            ) : (
+              <div>
+                <SessionMessages uid={uid!} sessionId={sessionID!} />
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                  >
+                    <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                      {msg.sender === "bot" ? (
+                        <Image src="/images/logo3.png" alt="IkigAI Logo" width={24} height={20} priority />
+                      ) : (
+                        <FaUser size={16} />
+                      )}
+                    </div>
 
-        {!hasStarted && (
-          <div
-            className={`flex-1 flex items-start justify-center transition-opacity duration-400`}
-            style={{ opacity: fadeOut ? 0 : 1 }}
-          >
-            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky bottom-[60%] text-4xl font-semibold mb-4 ">
-              <Typewriter
-                words={['Welcome to IkigAI']}
-                loop={true}
-                typeSpeed={100}
-              />
-            </div>
+                    <div
+                      className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
+                      style={{
+                        backgroundColor: msg.sender === "user" ? "#e5e7eb" : "rgba(255, 255, 255, 0.4)",
+                        color: "#111827",
+                        maxWidth: "75%",
+                      }}
+                    >
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex items-start gap-3 animate-pulse">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                      <Image src="/images/logo3.png" alt="IkigAI Logo" width={16} height={16} priority />
+                    </div>
+                    <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
+                      Typing...
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* INPUT AREA */}
         <form

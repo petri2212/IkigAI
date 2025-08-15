@@ -1,34 +1,41 @@
 import Link from "next/link";
 import { Session } from "@/app/api/getUserSessions/route";
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 
 type HistoryProps = {
     uid: string;
+    onSelectSession?: (sessionId: string) => void; // callback quando si clicca su una chat
 };
 
+export type ChatHistoryRef = {
+    refresh: () => void;
+};
 
-export default function ChatHistory({ uid }: HistoryProps) {
+const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSession }, ref) => {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchSessions() {
-            try {
-                const res = await fetch(`/api/getUserSessions?uid=${uid}`);
-                const data = await res.json();
-                // Correzione: prendi direttamente l'array delle sessioni
-                setSessions(data.sessions || []);
-            } catch (error) {
-                console.error("Errore fetch sessioni:", error);
-                setSessions([]);
-            } finally {
-                setLoading(false);
-            }
+    const fetchSessions = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/getUserSessions?uid=${uid}`);
+            const data = await res.json();
+            setSessions(data.sessions || []);
+        } catch (error) {
+            console.error("Errore fetch sessioni:", error);
+            setSessions([]);
+        } finally {
+            setLoading(false);
         }
+    };
 
-        if (uid) {
-            fetchSessions();
-        }
+    // Espone la funzione di refresh al componente genitore
+    useImperativeHandle(ref, () => ({
+        refresh: fetchSessions
+    }));
+
+    useEffect(() => {
+        if (uid) fetchSessions();
     }, [uid]);
 
     if (loading) {
@@ -47,7 +54,7 @@ export default function ChatHistory({ uid }: HistoryProps) {
             <div className="flex flex-col justify-center h-20 text-gray-700 px-4">
                 <p className="text-lg text-gray-500">No Chat History</p>
             </div>
-        )
+        );
     }
 
     const sortedSessions = [...sessions].sort(
@@ -60,15 +67,14 @@ export default function ChatHistory({ uid }: HistoryProps) {
                 <p className="text-lg text-gray-500">Chat History</p>
             </div>
             {sortedSessions.map((session, index) => (
-                <Link
+                <div
                     key={session.number_session}
-                    href={{
-                        pathname: "/protected/career-match",
-                        query: { path: session.path, sessionId: session.number_session },
+                    onClick={() => {
+                        if (onSelectSession) onSelectSession(session.number_session);
                     }}
-                    className={`flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
+                    className={`cursor-pointer flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
                             hover:shadow-md transition-all duration-100 group
-                            ${session.path === "simplified" ? "hover:border-blue-900 text-blue-800" : "hover:border-green-800 text-green-800"}`}
+                            ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:border-green-800 text-green-800"}`}
                 >
                     <div className="flex flex-col">
                         <span
@@ -95,9 +101,11 @@ export default function ChatHistory({ uid }: HistoryProps) {
                     >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                </Link>
+                </div>
             ))}
         </div>
-
     );
-}
+});
+
+ChatHistory.displayName = "ChatHistory";
+export default ChatHistory;
