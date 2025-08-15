@@ -206,6 +206,21 @@ export default function ChatPage() {
   };
 
 
+
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
   const handleNewChat = () => {
     setMessages([]);
     setHasStarted(false);
@@ -260,32 +275,44 @@ export default function ChatPage() {
         </div>
 
         {/* New Chat Button */}
-        {sidebarOpen ? (
-          <Link
-            href={{
-              pathname: "/protected/career-match",
-              query: { path: isSimplified ? "simplified" : "completed", sessionId: createNewSession() },
-            }}
-            onClick={handleNewChat}
-            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
+        <div className="relative inline-block" ref={menuRef}>
+          {/* Pulsante apertura menu */}
+          <button
+            type="button"
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="w-67 ml-2 px-3 py-2 flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
             style={{ color: accentColor }}
           >
             <VscNewFile className="text-2xl" />
             New Chat
-          </Link>
-        ) : (
-          <Link
-            href={{
-              pathname: "/protected/career-match",
-              query: { path: isSimplified ? "simplified" : "completed", sessionId: createNewSession() },
-            }}
-            onClick={handleNewChat}
-            className="w-67 ml-2 px-3 py-2 text-left flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
-            style={{ color: accentColor }}
-          >
-            <VscNewFile className="text-2xl" />
-          </Link>
-        )}
+          </button>
+
+          {/* Menu */}
+          {isOpen && (
+            <div className="w-67 ml-2 absolute left-0 mt-1 bg-transparent backdrop-blur-[2px] border rounded-lg shadow-lg z-50 overflow-hidden">
+              <Link
+                href={{
+                  pathname: "/protected/career-match",
+                  query: { path: "simplified", sessionId: createNewSession() },
+                }}
+                onClick={handleNewChat}
+                className="block flex justify-center px-4 py-2 hover:bg-blue-100/80 text-blue-700"
+              >
+                Simplified
+              </Link>
+              <Link
+                href={{
+                  pathname: "/protected/career-match",
+                  query: { path: "completed", sessionId: createNewSession() },
+                }}
+                onClick={handleNewChat}
+                className="block flex justify-center px-4 py-2 hover:bg-green-100/80 text-green-700"
+              >
+                Completed
+              </Link>
+            </div>
+          )}
+        </div>
 
 
         <div onClick={handleClick} style={{ cursor: "pointer" }}>
