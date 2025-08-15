@@ -35,7 +35,9 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
     }));
 
     useEffect(() => {
-        if (uid) fetchSessions();
+        if (uid) {
+            fetchSessions();
+        }
     }, [uid]);
 
     if (loading) {
@@ -67,12 +69,16 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
                 <p className="text-lg text-gray-500">Chat History</p>
             </div>
             {sortedSessions.map((session, index) => (
-                <div
+                <Link
                     key={session.number_session}
+                    href={{
+                        pathname: "/protected/career-match",
+                        query: { path: session.path, sessionId: session.number_session },
+                    }}
                     onClick={() => {
                         if (onSelectSession) onSelectSession(session.number_session);
                     }}
-                    className={`cursor-pointer flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
+                    className={`flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
                             hover:shadow-md transition-all duration-100 group
                             ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:border-green-800 text-green-800"}`}
                 >
@@ -101,7 +107,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
                     >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                </div>
+                </Link>
             ))}
         </div>
     );
