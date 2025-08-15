@@ -618,7 +618,7 @@ export async function chatbotLoopCompleted(
   };
 }
 
-export async function chatbotLoopSimplified(
+/*export async function chatbotLoopSimplified(
   userInput: string,
   userId: string,
   sessionNumber: string,
@@ -626,4 +626,91 @@ export async function chatbotLoopSimplified(
   topics: string[] = ["ingegenria meccanica"]
 ): Promise<void> {
   // TODO: implement function logic
+  
+}*/
+
+export async function chatbotLoopSimplified(
+  userInput: string,
+  userId: string,
+  sessionNumber: string,
+  path: string,
+  topics: string[] = ["ingegenria meccanica"] // argomenti di default
+): Promise<{ message: string; done: boolean }> {
+  const mcp = await getMcpClient();
+  const sessionKey = `${userId}-${sessionNumber}`;
+
+  let session = sessions.get(sessionKey);
+
+  // Se nuova sessione, genera domande dall'AI
+  if (!session) {
+    const generatedQuestions = await generateQuestions(topics);
+
+
+    session = { step: 0, answers: [], flow: generatedQuestions };
+    sessions.set(sessionKey, session);
+  }
+
+  // Se chiamata di inizializzazione (__INIT__) → restituisci la prima domanda senza salvare
+  if (userInput === "__INIT__") {
+    return {
+      message: session.flow[0].question,
+      done: false,
+    };
+  }
+
+  // Se finite le domande
+  if (session.step >= session.flow.length) {
+    sessions.delete(sessionKey);
+    return {
+      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
+      done: true,
+    };
+  }
+
+  // Se l'utente fa domanda esterna
+  if (isUserAskingQuestion(userInput)) {
+    const aiAnswer = await answerExternalQuestion(userInput);
+    return {
+      message: aiAnswer,
+      done: false,
+    };
+  }
+
+  // Salvo risposta precedente in MCP
+  const prevQuestion = session.flow[session.step].question;
+
+  console.log("💾 Salvataggio su Mongo:", {
+    id: userId,
+    number_session: sessionNumber,
+    question: prevQuestion,
+    answer: userInput,
+  });
+
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: prevQuestion,
+        answer: userInput,
+        path: path,
+      },
+    });
+  } catch (err) {
+    console.error("Errore salvataggio dati MCP:", err);
+  }
+
+  session.answers.push(userInput);
+
+  // Prossima domanda
+  session.step += 1;
+  sessions.set(sessionKey, session);
+
+  return {
+    message:
+      session.flow[session.step]?.question ??
+      "Ottimo, hai finito le domande ora ti do la conclusione.",
+    done: session.step >= session.flow.length,
+  };
 }
