@@ -2,12 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
+// Question/Answer model
 export type QAEntry = {
   question: string;
   answer: string;
   timestamp: string;
 };
 
+// Session Data model
 export type SessionData = {
   id: string;
   number_session: string;
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
     if (!id || !number_session) {
       return NextResponse.json({ error: "Missing uid or sessionId" }, { status: 400 });
     }
-
+    // MCP callToll
     const mcp = await getMcpClient();
     const response = await mcp.callTool({
       name: "get-session-data",
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     const firstBlock = content[0];
     
-    // Supporta sia JSON che testo serializzato
+    // Responce from MCP
     let data: any;
     if (firstBlock.type === "json") {
       data = firstBlock.json;
@@ -50,21 +52,15 @@ export async function GET(req: NextRequest) {
     } else {
       return NextResponse.json({ error: "Invalid content type from MCP" }, { status: 500 });
     }
-
+    
     if (!data.success) {
       return NextResponse.json({ error: data.error || "Session not found", q_and_a: [] }, { status: 404 });
     }
 
-    type RawQAEntry = {
-      question: string;
-      answer: string;
-      timestamp?: string | Date;
-    };
-
     const sessionData: SessionData = {
       id,
       number_session,
-      q_and_a: ((data.q_and_a ?? data.session?.q_and_a ?? []) as RawQAEntry[])
+      q_and_a: ((data.q_and_a ?? data.session?.q_and_a ?? []) as QAEntry[])
         .filter((entry) => entry.question && entry.answer)
         .map((entry) => ({
           question: entry.question,
