@@ -22,6 +22,9 @@ import { Typewriter } from 'react-simple-typewriter'
 import path from "node:path";
 import { sendFirstBotMessage } from '@/app/components/firstMessage'
 import createNewSession from "./pathcard";
+import { Session } from "../api/getUserSessions/route";
+import ChatHistory from "./chatHistory";
+import SessionMessages from "./sessionMessages";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -33,37 +36,35 @@ type Message = {
   text: string;
 };
 
-type ChatHistoryItem = {
-  id: string;
-  title: string;
-}
-
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const path = searchParams.get("path");
+  const sessionIdparam = searchParams.get("sessionId");
   // Path determination
   const isSimplified = path === "simplified";
+  const sessionID = sessionIdparam;
 
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  //const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
-  // Chat history dummy
-  const [chatHistory] = useState<ChatHistoryItem[]>([
-    { id: "ciao", title: "hello" }
-  ]);
+
   // Flow
   const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
     "askCV"
   );
+  const [userSessions, setUserSessions] = useState<Session[]>([]);
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+
   // Chat messages
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -71,6 +72,7 @@ export default function ChatPage() {
   const [hovered, setHovered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isFirst, setIsFirst] = useState(true);
+
 
   // Main colors based on path
   const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
@@ -91,29 +93,34 @@ export default function ChatPage() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        const token = await user.getIdToken();
         setUid(user.uid);
-        setSessionToken(token);
 
-        const newSessionId = uuidv4();
-        setSessionId(newSessionId);
-        console.log("Nuova sessione generata:", newSessionId);
+
       } else {
         setUid(null);
-        setSessionToken(null);
-        setSessionId(null);
+
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // First Bot Message
   useEffect(() => {
     if (!uid) return;
-    const cleanup = sendFirstBotMessage(setMessages, setStage, 3100);
-    return cleanup;
+
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch(`/api/getUserSessions?uid=${uid}`);
+        const data = await res.json();
+        setUserSessions(data.sessions || []);
+      } catch (err) {
+        console.error("Errore fetch sessioni:", err);
+      }
+    };
+
+    fetchSessions();
   }, [uid]);
+
 
   // Animation Effects
   useEffect(() => {
@@ -150,29 +157,42 @@ export default function ChatPage() {
     }
   }, [hasStarted]);
 
+  const handleClick = () => {
+    setMessages([]);
+  };
 
   // Hadle Submit of the input
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
+
     setInput("");
+
+    // Reimposta il focus dopo il re-render
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        // caret alla fine (utile su mobile)
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    });
+
     setIsLoading(true);
 
     try {
       if (!uid) return;
 
       if (stage === "waitingForCV") {
-        // User has answered at the CV question in chat
         setStage("chatting");
-        // Bot proceeds with AI questions
-        const botResponse = await mockBotResponse("__INIT__", uid, sessionId, path);
+        const botResponse = await mockBotResponse("__INIT__", uid, sessionID, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       } else {
-        // Normal Chatting , continue with mockBotResponse
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionId, path);
+        const botResponse = await mockBotResponse(input.trim(), uid, sessionID, path);
         setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
       }
     } catch {
@@ -185,10 +205,10 @@ export default function ChatPage() {
     }
   };
 
+
   const handleNewChat = () => {
     setMessages([]);
     setHasStarted(false);
-    sendFirstBotMessage(setMessages, setStage, 500)
   };
 
   // UI
@@ -267,52 +287,10 @@ export default function ChatPage() {
           </Link>
         )}
 
-        {/* Chat History */}
-        <nav className="flex-1 overflow-y-auto px-2 space-y-1">
-          {chatHistory.length === 0 && sidebarOpen && (
-            <p className="text-gray-400 italic px-3 mt-20">No chat history</p>
-          )}
-          {chatHistory.length !== 0 && sidebarOpen ? (
-            <p className="text-gray-400 italic px-3 mt-20">Chat</p>
-          ) : (
-            <p></p>
-          )}
-          {chatHistory.map(
-            (chat) =>
-              sidebarOpen && (
-                <button
-                  key={chat.id}
-                  className="w-full text-left px-1 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-100 flex justify-between items-center"
-                  style={{ color: accentColor }}
-                  onClick={() =>
-                    alert(`Switch to chat ${chat.title} (implement later)`)
-                  }
-                >
-                  {/* Titolo */}
-                  <span
-                    className={`overflow-hidden whitespace-nowrap ease-in-out 
-                      ${sidebarOpen ? "opacity-100 max-w-full ml-2" : "opacity-0 max-w-0"}`
-                    }
-                  >
-                    {chat.title}
-                  </span>
 
-                  {/* Colored Dot */}
-                  {path && (
-                    <span
-                      className="inline-block rounded-full mr-2"
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        backgroundColor: accentBg,
-                        border: `1px solid ${accentColor}`,
-                      }}
-                    />
-                  )}
-                </button>
-              )
-          )}
-        </nav>
+        <div onClick={handleClick} style={{ cursor: "pointer" }}>
+          <ChatHistory uid={uid!} />
+        </div>
       </aside>
 
       {/* MAIN CHAT AREA */}
@@ -347,72 +325,45 @@ export default function ChatPage() {
         </div>
 
         {/* MESSAGES AREA */}
-        {hasStarted && (
-          <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300">
-            <div className="max-w-[60%] mx-auto space-y-4">
-              {messages.map((msg, idx) => (
+
+        <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative">
+          <div className="max-w-[60%] mx-auto space-y-4">
+            <SessionMessages uid={uid!} sessionId={sessionID!} />
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+              >
+                <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                  {msg.sender === "bot" ? (
+                    <Image src="/images/logo3.png" alt="IkigAI Logo" width={24} height={20} priority />
+                  ) : (
+                    <FaUser size={16} />
+                  )}
+                </div>
+
                 <div
-                  key={idx}
-                  className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-                    }`}
+                  className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
+                  style={{
+                    backgroundColor: msg.sender === "user" ? "#e5e7eb" : "rgba(255, 255, 255, 0.4)",
+                    color: "#111827",
+                    maxWidth: "75%",
+                  }}
                 >
-                  {/* Icons */}
-                  <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                    {msg.sender === "bot" ? (
-                      <Image
-                        src="/images/logo3.png"
-                        alt="IkigAI Logo"
-                        width={24}
-                        height={20}
-                        priority
-                      />
-                    ) : (
-                      <FaUser size={16} />
-                    )}
-                  </div>
-
-                  {/* Print Output */}
-                  <div
-                    className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
-                    style={{
-                      backgroundColor: msg.sender === "user" ? lightBG : "rgba(255, 255, 255, 0.4)",
-                      color: "#111827",
-                      maxWidth: "75%",
-                    }}
-                  >
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  </div>
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
                 </div>
-              ))}
-              {/* Animation During IkigAI Response*/}
-              {isLoading && (
-                <div className="flex items-start gap-3 animate-pulse">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                    <Image
-                      src="/images/logo3.png"
-                      alt="IkigAI Logo"
-                      width={16}
-                      height={16}
-                      priority
-                    />
-                  </div>
-                  <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
-                    Typing...
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+          <div ref={messagesEndRef} />
+        </div>
 
         {!hasStarted && (
           <div
             className={`flex-1 flex items-start justify-center transition-opacity duration-400`}
             style={{ opacity: fadeOut ? 0 : 1 }}
           >
-            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky top-[40%] text-4xl font-semibold mb-4 ">
+            <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg sticky bottom-[60%] text-4xl font-semibold mb-4 ">
               <Typewriter
                 words={['Welcome to IkigAI']}
                 loop={true}
@@ -425,8 +376,8 @@ export default function ChatPage() {
         {/* INPUT AREA */}
         <form
           onSubmit={handleSubmit}
-          className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-500
-                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[35%] translate-y"}
+          className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-450
+                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[25%] translate-y"}
                     `}
           style={{
             borderColor: accentColor,
@@ -453,7 +404,7 @@ export default function ChatPage() {
                 onChange={async (e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];
-                    if (uid && sessionId) {
+                    if (uid && sessionID) {
                       try {
                         const result = await handlePdfUpload(file, uid);
                         if (result.success) {
@@ -467,7 +418,7 @@ export default function ChatPage() {
                             const botResponse = await mockBotResponse(
                               "__INIT__",
                               uid,
-                              sessionId,
+                              sessionID,
                               path
                             );
                             setMessages((prev) => [
@@ -509,6 +460,8 @@ export default function ChatPage() {
 
             {/* Textarea */}
             <textarea
+              ref={textareaRef}
+              autoFocus
               placeholder="Type your message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -518,7 +471,6 @@ export default function ChatPage() {
                   handleSubmit(e);
                 }
               }}
-              disabled={isLoading}
               className="w-full border rounded-lg pl-14 pr-14 py-2 focus:outline-none focus:ring-2 font-mono text-base resize-none whitespace-pre-wrap"
               rows={3}
               style={{
