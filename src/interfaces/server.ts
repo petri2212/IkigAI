@@ -13,6 +13,9 @@ import type { Message, SessionDoc, QA } from "../domain/message.ts";
 import { MongoClient, type Collection } from "mongodb";
 import { Session } from "node:inspector/promises";
 import { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
+import OpenAI from "openai";
+import { parsePdfBase64 } from "@/application/chatbotLoop.js";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const server = new McpServer({
   name: "test",
@@ -23,8 +26,6 @@ const server = new McpServer({
     prompts: {},
   },
 });
-
-
 
 /*
 server.resource(
@@ -139,8 +140,63 @@ server.resource(
     };
   }
 );
-// tool per prendere un lavoro specifico
+server.tool(
+  "analyze-cv-for-skill",
+  "Analizza il CV dell'utente e restituisce una skill/professione principale",
+  {
+    cvBase64: z.string(),
+    paese: z.string().optional(),
+    citta: z.string().optional(),
+    tipoContratto: z.string().optional(),
+    azienda: z.string().optional(),
+    stipendio: z.string().optional(),
+  },
+  {
+    title: "Analizza CV per skill",
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  async ({ cvBase64, paese, citta, tipoContratto, azienda, stipendio }) => {
+    if (!cvBase64) {
+      return {
+        content: [{ type: "text", text: "Errore: CV mancante." }],
+      };
+    }
 
+    let cvText = "";
+    if (cvBase64.startsWith("JVBER")) {
+      cvText = await parsePdfBase64(cvBase64);
+      if (!cvText) cvText = "CV non leggibile";
+    } else {
+      cvText = "CV non in formato PDF";
+    }
+
+    // Qui chiami OpenAI con cvText per inferire la skill
+    const prompt = `Sei un career coach esperto. Analizza il seguente CV e restituisci **solo il nome della professione più adatta**, senza frasi aggiuntive. 
+CV: ${cvText}`;
+
+    const openaiResponse = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "Sei un career coach esperto." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 20, // basta una parola o due
+      temperature: 0,
+    });
+
+    const suggestedSkill =
+      openaiResponse.choices?.[0]?.message?.content?.trim() ?? "";
+
+    return {
+      content: [{ type: "text", text: suggestedSkill || "Project Manager" }], // fallback se vuoto
+    };
+  }
+);
+
+// tool per prendere un lavoro specifico
 server.tool(
   "search-jobs",
   "Search for jobs based on user preferences",
@@ -398,8 +454,9 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Errore: ${error instanceof Error ? error.message : "Unknown error"
-              }`,
+            text: `Errore: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
           },
         ],
       };
@@ -546,8 +603,9 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error: ${error instanceof Error ? error.message : "Unknown error"
-              }`,
+            text: `Error: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
           },
         ],
       };
@@ -699,7 +757,8 @@ server.tool(
   },
   async ({ id, number_session }) => {
     const mongoUri = process.env.MONGODB_URI;
-    if (!mongoUri) throw new Error("MONGODB_URI environment variable is not set");
+    if (!mongoUri)
+      throw new Error("MONGODB_URI environment variable is not set");
 
     const client = new MongoClient(mongoUri);
 
@@ -728,7 +787,9 @@ server.tool(
       const q_and_a: QAEntry[] = (session.q_and_a || []).map((entry: any) => ({
         question: entry.question,
         answer: entry.answer,
-        timestamp: entry.timestamp ? new Date(entry.timestamp).toISOString() : new Date().toISOString(),
+        timestamp: entry.timestamp
+          ? new Date(entry.timestamp).toISOString()
+          : new Date().toISOString(),
       }));
 
       const sessionData: SessionData = {
@@ -760,7 +821,13 @@ server.tool(
   "get-all-user-sessions",
   "Retrieve all Q&A sessions for a specific user",
   { id: z.string() },
-  { title: "Get All User Sessions", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  {
+    title: "Get All User Sessions",
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
   async ({ id }) => {
     const { MongoClient } = await import("mongodb");
     const client = new MongoClient(process.env.MONGODB_URI!);
@@ -769,10 +836,21 @@ server.tool(
       await client.connect();
       const collection = client.db("Main").collection("Sessions");
 
-      const sessions = await collection.find({ id }).sort({ createdAt: 1 }).toArray();
+      const sessions = await collection
+        .find({ id })
+        .sort({ createdAt: 1 })
+        .toArray();
 
       if (!sessions.length) {
-        return { content: [{ type: "text" as const, text: `No sessions found for user "${id}".`, _meta: {} }] };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `No sessions found for user "${id}".`,
+              _meta: {},
+            },
+          ],
+        };
       }
 
       const content = sessions.map((session) => ({
@@ -798,8 +876,6 @@ server.tool(
     }
   }
 );
-
-
 
 server.prompt(
   "generate-fake-user",
