@@ -18,7 +18,7 @@ import { VscNewFile } from "react-icons/vsc";
 import { FaArrowCircleRight, FaUser } from "react-icons/fa";
 import { HiX } from "react-icons/hi";
 // Typing animation
-import { Typewriter } from 'react-simple-typewriter'
+import { Typewriter } from "react-simple-typewriter";
 import createNewSession from "./pathcard";
 import { Session } from "../api/getUserSessions/route";
 import ChatHistory, { ChatHistoryRef } from "./chatHistory";
@@ -33,7 +33,6 @@ type Message = {
   sender: "user" | "bot";
   text: string;
 };
-
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
@@ -51,17 +50,14 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
-
   // Flow
-  const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
-    "waitingForCV"
-  );
+  const [stage, setStage] = useState<
+    "askCV" | "waitingForCV" | "chatting" | "careerCoach"
+  >("waitingForCV");
   const [userSessions, setUserSessions] = useState<Session[]>([]);
-
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
 
   // Chat messages
   const [input, setInput] = useState("");
@@ -76,12 +72,16 @@ export default function ChatPage() {
   // Main colors based on path
   const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
   const textColor = isSimplified ? "#1e3a8a" : "#2b9f55ff";
-  const accentBg = isSimplified ? "var(--color-blue-light)" : "var(--color-green-light)";
+  const accentBg = isSimplified
+    ? "var(--color-blue-light)"
+    : "var(--color-green-light)";
   const accentHover = isSimplified ? "#1e3a8a" : "#16a34a";
   const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff";
   const lightBG = isSimplified ? "#1643c13a" : "#47d02139";
   const baseColor = "#6b7280";
-  const imageSrc = isSimplified ? "/images/wallpaper1.png" : "/images/wallpaper2.png";
+  const imageSrc = isSimplified
+    ? "/images/wallpaper1.png"
+    : "/images/wallpaper2.png";
 
   // Scroll effect
   useEffect(() => {
@@ -93,11 +93,8 @@ export default function ChatPage() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setUid(user.uid);
-
-
       } else {
         setUid(null);
-
       }
     });
 
@@ -178,13 +175,51 @@ export default function ChatPage() {
 
       if (stage === "waitingForCV") {
         setStage("chatting");
-        console.log("sessionID")
-        const botResponse = await mockBotResponse("__INIT__", uid, sessionID, path);
-        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
-      } else {
-        console.log("sessionID")
-        const botResponse = await mockBotResponse(input.trim(), uid, sessionID, path);
-        setMessages((prev) => [...prev, { sender: "bot", text: botResponse }]);
+        console.log("sessionID");
+        const botResponse = await mockBotResponse(
+          "__INIT__",
+          uid,
+          sessionID,
+          path
+        );
+        setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: botResponse.message },
+        ]);
+      } else if (stage === "chatting") {
+        console.log("sessionID");
+        const botResponse = await mockBotResponse(
+          input.trim(),
+          uid,
+          sessionID,
+          path
+        );
+        setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: botResponse.message },
+        ]);
+        // Se il backend segnala cambio modalità
+        if (botResponse.mode === "career_coach") {
+          setStage("careerCoach");
+           setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?"},
+        ]);
+        }
+      } else if (stage === "careerCoach") {
+        // qui chiami direttamente la modalità libera (es: path = "career_coach")
+        const botResponse = await mockBotResponse(
+          input.trim(),
+          uid,
+          sessionID,
+          path,
+          "careerCoach"
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: botResponse.message },
+        ]);
       }
     } catch {
       setMessages((prev) => [
@@ -195,8 +230,6 @@ export default function ChatPage() {
       setIsLoading(false);
     }
   };
-
-
 
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -211,7 +244,6 @@ export default function ChatPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-
   const handleNewChat = () => {
     historyRef.current?.refresh();
     setMessages([]);
@@ -223,8 +255,9 @@ export default function ChatPage() {
     <div className="flex h-screen bg-blue-200">
       {/* SIDEBAR */}
       <aside
-        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${sidebarOpen ? "w-72" : "w-16"
-          }`}
+        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${
+          sidebarOpen ? "w-72" : "w-16"
+        }`}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-2 h-16 border-gray-200 ">
@@ -403,7 +436,7 @@ export default function ChatPage() {
               >
                 <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg text-4xl font-semibold mb-4 ">
                   <Typewriter
-                    words={['Welcome to IkigAI']}
+                    words={["Welcome to IkigAI"]}
                     loop={true}
                     typeSpeed={100}
                   />
@@ -415,11 +448,19 @@ export default function ChatPage() {
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                    className={`flex items-start mt-10 gap-3 ${
+                      msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                    }`}
                   >
                     <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
                       {msg.sender === "bot" ? (
-                        <Image src="/images/logo3.png" alt="IkigAI Logo" width={24} height={20} priority />
+                        <Image
+                          src="/images/logo3.png"
+                          alt="IkigAI Logo"
+                          width={24}
+                          height={20}
+                          priority
+                        />
                       ) : (
                         <FaUser size={16} />
                       )}
@@ -428,7 +469,10 @@ export default function ChatPage() {
                     <div
                       className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
                       style={{
-                        backgroundColor: msg.sender === "user" ? "#e5e7eb" : "rgba(255, 255, 255, 0.4)",
+                        backgroundColor:
+                          msg.sender === "user"
+                            ? "#e5e7eb"
+                            : "rgba(255, 255, 255, 0.4)",
                         color: "#111827",
                         maxWidth: "75%",
                       }}
@@ -440,7 +484,13 @@ export default function ChatPage() {
                 {isLoading && (
                   <div className="flex items-start gap-3 animate-pulse">
                     <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
-                      <Image src="/images/logo3.png" alt="IkigAI Logo" width={16} height={16} priority />
+                      <Image
+                        src="/images/logo3.png"
+                        alt="IkigAI Logo"
+                        width={16}
+                        height={16}
+                        priority
+                      />
                     </div>
                     <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md">
                       Typing...
@@ -458,7 +508,11 @@ export default function ChatPage() {
         <form
           onSubmit={handleSubmit}
           className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-450
-                    ${hasStarted ? "sticky bottom-10" : "sticky bottom-[25%] translate-y"}
+                    ${
+                      hasStarted
+                        ? "sticky bottom-10"
+                        : "sticky bottom-[25%] translate-y"
+                    }
                     `}
           style={{
             borderColor: accentColor,
@@ -487,7 +541,11 @@ export default function ChatPage() {
                     const file = e.target.files[0];
                     if (uid && sessionID) {
                       try {
-                        const result = await handlePdfUpload(file, uid, sessionID);
+                        const result = await handlePdfUpload(
+                          file,
+                          uid,
+                          sessionID
+                        );
                         if (result.success) {
                           setMessages((prev) => [
                             ...prev,
@@ -504,7 +562,7 @@ export default function ChatPage() {
                             );
                             setMessages((prev) => [
                               ...prev,
-                              { sender: "bot", text: botResponse },
+                              { sender: "bot", text: botResponse.message },
                             ]);
                           } catch {
                             setMessages((prev) => [
@@ -586,12 +644,19 @@ export default function ChatPage() {
   );
 }
 
+interface BotResponse {
+  message: string;
+  done: boolean;
+  mode?: "career_coach";
+}
+
 async function mockBotResponse(
   userInput: string,
   uid: string | null,
   session: string | null,
-  path: string | null
-): Promise<string> {
+  path: string | null,
+  stage?: string  
+): Promise<BotResponse> {
   const res = await fetch("/api/chatbot", {
     method: "POST",
     headers: {
@@ -602,11 +667,12 @@ async function mockBotResponse(
       userId: uid,
       session,
       path,
+      stage,
     }),
   });
 
   const data = await res.json();
 
-  //data.response must be an object with a message field
-  return data.response?.message ?? "Nessuna risposta";
+  // Ritorna tutto l'oggetto, non solo il testo
+  return data.response as BotResponse;
 }

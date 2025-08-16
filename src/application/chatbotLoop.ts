@@ -644,7 +644,8 @@ async function generateJobConclusion(
       return found?.answer || "Non specificato";
     });
 
-    const [skills, paese, citta, tipoContratto, azienda, stipendio] = jobAnswers;
+    const [skills, paese, citta, tipoContratto, azienda, stipendio] =
+      jobAnswers;
 
     // Helper per normalizzare risposte vuote
     const normalizeAnswer = (answer: string) => {
@@ -721,16 +722,16 @@ PREFERENZE UTENTE:
 
 LAVORI TROVATI:
 ${jobs
-      .map(
-        (j) => `Titolo: ${j.title}
+  .map(
+    (j) => `Titolo: ${j.title}
 Azienda: ${j.company}
 Luogo: ${j.location}
 Contratto: ${j.contract_type}
 Stipendio: ${j.salary_min} - ${j.salary_max}
 Descrizione: ${j.description}
 URL: ${j.url}`
-      )
-      .join("\n\n")}
+  )
+  .join("\n\n")}
 
 Scrivi una conclusione professionale che:
 1. Riassuma le preferenze dell'utente
@@ -760,7 +761,97 @@ Mantieni un tono professionale ma amichevole. Limita a 400 parole.
     return "Si è verificato un errore durante la ricerca dei lavori.";
   }
 }
+async function getUserData(userId: string, sessionNumber: string): Promise<{ cvText: string; sessionData: string }> {
+  const mcp = await getMcpClient();
+  let cvBase64: string | undefined;
+  let sessionData: string = "";
 
+  // Recupero CV
+  try {
+    const cvResponse = (await mcp.callTool({
+      name: "get-pdf-from-mongo",
+      arguments: { id: userId, session: sessionNumber },
+    })) as ToolResponse;
+    cvBase64 = cvResponse.content?.[0]?.text;
+  } catch (err) {
+    console.error("Errore recupero CV MCP:", err);
+  }
+
+  // Recupero sessione
+  try {
+    const sessionResponse = (await mcp.callTool({
+      name: "get-session-data",
+      arguments: { id: userId, number_session: sessionNumber },
+    })) as ToolResponse;
+    sessionData = sessionResponse.content?.[0]?.text ?? "";
+  } catch (err) {
+    console.error("Errore recupero sessione MCP:", err);
+  }
+
+  // Decodifica PDF
+  let cvText = "";
+  if (cvBase64 && cvBase64.startsWith("JVBER")) {
+    try {
+      cvText = await parsePdfBase64(cvBase64);
+      if (!cvText || cvText.trim().length === 0) cvText = "CV non leggibile";
+    } catch (err) {
+      console.error("Errore decodifica CV:", err);
+      cvText = "Errore nella lettura del CV";
+    }
+  } else {
+    cvText = cvBase64 ? "CV non in formato PDF" : "CV non inserito";
+  }
+
+  return { cvText, sessionData };
+}
+async function generateCareerPlan(cvText: string, sessionData: string): Promise<string> {
+  const prompt = `
+Sei un Career Coach virtuale esperto.
+Hai a disposizione il CV e i dati della sessione dell'utente.
+Analizza attentamente e stila un piano personalizzato per raggiungere gli obiettivi dell'utente.
+Rispondi in modo chiaro, pratico e dettagliato.
+
+CV: ${cvText || "Non disponibile"}
+Sessione: ${sessionData || "Non disponibile"}
+  `;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 800,
+    temperature: 0.6,
+  });
+
+  return completion.choices?.[0]?.message?.content?.trim() ?? 
+         "Non sono riuscito a generare un piano.";
+}
+async function answerUserQuestion(userInput: string, sessionData: string): Promise<string> {
+  const prompt = `
+Sei un Career Coach virtuale esperto.
+Hai a disposizione i dati della sessione dell'utente.
+Rispondi alla seguente domanda in modo chiaro e pratico:
+
+Domanda: ${userInput}
+
+Sessione: ${sessionData || "Non disponibile"}
+  `;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 400,
+    temperature: 0.6,
+  });
+
+  return completion.choices?.[0]?.message?.content?.trim() ?? 
+         "Non so come rispondere a questa domanda.";
+}
 
 export async function chatbotLoopCompleted(
   userInput: string,
@@ -768,7 +859,7 @@ export async function chatbotLoopCompleted(
   sessionNumber: string,
   path: string,
   topics: string[] = ["ingegneria meccanica"] // corretto il typo
-): Promise<{ message: string; done: boolean }> {
+): Promise<{ message: string; done: boolean ; mode?: "career_coach"; }> {
   const mcp = await getMcpClient();
   const sessionKey = `${userId}-${sessionNumber}`;
 
@@ -781,9 +872,15 @@ export async function chatbotLoopCompleted(
         "In che paese vorresti lavorare, scegli tra queste opzioni: italia, francia, inghilterra, germania, polonia",
     },
     { question: "In che città vorresti lavorare?" },
-    { question: "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)" },
+    {
+      question:
+        "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)",
+    },
     { question: "Hai in mente qualche azienda specifica, digita il nome?" },
-    { question: "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)" },
+    {
+      question:
+        "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)",
+    },
   ];
 
   // Se nuova sessione, genera domande dall'AI + domande aggiuntive
@@ -876,6 +973,27 @@ export async function chatbotLoopCompleted(
   } else if (session.step >= session.flow.length) {
     // Siamo all'ultima domanda dopo ikigai, genera la conclusione con lavori
     nextMessage = await generateJobConclusion(userId, sessionNumber);
+    try {
+      await mcp.callTool({
+        name: "save-session-data",
+        arguments: {
+          id: userId,
+          number_session: sessionNumber,
+          question: nextMessage,
+          answer: "+",
+          path: path,
+        },
+      });
+      sessions.delete(sessionKey);
+      return {
+        message:
+          `${nextMessage}`,
+        done: true,
+        mode: "career_coach", // <--- nuovo flag
+      };
+    } catch (err) {
+      console.error("Errore salvataggio dati MCP:", err);
+    }
   } else {
     // Normale passaggio di domanda
     nextMessage =
@@ -894,17 +1012,75 @@ export async function chatbotLoopCompleted(
     done: session.step >= session.flow.length,
   };
 }
-
-/*export async function chatbotLoopSimplified(
+const careerPlanGenerated: Map<string, boolean> = new Map();
+export async function careerCoachChat(
   userInput: string,
   userId: string,
   sessionNumber: string,
-  isSimplified: string,
-  topics: string[] = ["ingegenria meccanica"]
-): Promise<void> {
-  // TODO: implement function logic
-  
-}*/
+  path: string
+): Promise<{ message: string }> {
+  const key = `${userId}-${sessionNumber}`;
+  const mcp = await getMcpClient();
+
+  // 1. Recupera dati utente
+  const { cvText, sessionData } = await getUserData(userId, sessionNumber);
+
+  let message: string;
+
+  // 2. Se prima volta, genero il piano
+  if (!careerPlanGenerated.get(key)) {
+    message = await generateCareerPlan(cvText, sessionData);
+    careerPlanGenerated.set(key, true);
+    
+console.log(" Salvataggio su Mongo:", {
+   id: userId,
+          number_session: sessionNumber,
+          question: message,
+          answer: "__GENERATE_CAREER_PLAN__",
+          path: path,
+  });
+    // Salvataggio su sessione MCP
+    try {
+      await mcp.callTool({
+        name: "save-session-data",
+        arguments: {
+          id: userId,
+          number_session: sessionNumber,
+          question: message,
+          answer:"__GENERATE_CAREER_PLAN__" ,
+          path: path,
+        },
+      });
+      console.log("Piano salvato su MCP:", message);
+    } catch (err) {
+      console.error("Errore salvataggio piano su MCP:", err);
+    }
+
+    return { message };
+  }
+
+  // 3. Dopo la prima volta, rispondo solo alle domande dell'utente
+  message = await answerUserQuestion(userInput, sessionData);
+
+  // Salvataggio domanda/risposta nella sessione
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: userInput,
+        answer:  message,
+        path: path,
+      },
+    });
+    console.log("Domanda/risposta salvata su MCP:", { question: userInput, answer: message });
+  } catch (err) {
+    console.error("Errore salvataggio domanda/risposta su MCP:", err);
+  }
+
+  return { message };
+}
 
 export async function chatbotLoopSimplified(
   userInput: string,
@@ -921,7 +1097,6 @@ export async function chatbotLoopSimplified(
   // Se nuova sessione, genera domande dall'AI
   if (!session) {
     const generatedQuestions = await generateQuestions(topics);
-
 
     session = { step: 0, answers: [], flow: generatedQuestions };
     sessions.set(sessionKey, session);
