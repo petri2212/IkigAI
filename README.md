@@ -1,10 +1,13 @@
 # IkigAI
 Bachelor Thesis
-Career Match & Career Coach: piattaforma per supportare utenti nella scelta e pianificazione della carriera.
 
-Career Match: analizza competenze, interessi, CV e valori personali (Ikigai) per suggerire percorsi professionali personalizzati.
+IkigAI – AI-Powered Career Coach: piattaforma che integra il concetto giapponese di Ikigai per suggerire carriere in linea con passioni, competenze, bisogni del mondo e opportunità economiche.
 
-Career Coach: guida nella definizione di obiettivi, pianificazione strategica e crescita personale e professionale, integrando motivazione e aspirazioni individuali.
+Career Match: raccoglie informazioni dall’utente tramite chat bot (CV, competenze, interessi, valori) per proporre percorsi professionali personalizzati.
+
+Career Coach: guida nella definizione di obiettivi, aggiornamento del profilo e crescita personale e professionale.
+
+Tecnologia: chatbot web con Next.js/React, modelli AI con fine-tuning e integrazione MCP per fonti dati esterne.
 
 ## First Phase - Literature review 
 
