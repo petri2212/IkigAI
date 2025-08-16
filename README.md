@@ -1,5 +1,10 @@
 # IkigAI
 Bachelor Thesis
+Career Match & Career Coach: piattaforma per supportare utenti nella scelta e pianificazione della carriera.
+
+Career Match: analizza competenze, interessi, CV e valori personali (Ikigai) per suggerire percorsi professionali personalizzati.
+
+Career Coach: guida nella definizione di obiettivi, pianificazione strategica e crescita personale e professionale, integrando motivazione e aspirazioni individuali.
 
 ## First Phase - Literature review 
 
