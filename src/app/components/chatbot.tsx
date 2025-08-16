@@ -201,7 +201,7 @@ export default function ChatPage() {
           setStage("careerCoach");
            setMessages((prev) => [
           ...prev,
-          { sender: "bot", text: "OTTIMO ora possimao proseguire con il career coach"},
+          { sender: "bot", text: "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?"},
         ]);
         }
       } else if (stage === "careerCoach") {
