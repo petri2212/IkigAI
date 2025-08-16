@@ -11,7 +11,7 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 - Why it is relevant
 - Pros and cons of the solution
 
-## Second Phase - Develop a RAG engine
+## Second Phase - Develop MCP Server-Client
 
 ### Setup
 
