@@ -29,7 +29,7 @@ export default function ProtectedPage() {
                 {/* Simplified Path */}
                 <Link
                   href={{
-                    pathname: "/protected/career-match",
+                    pathname: "/protected/c",
                     query: { path: "simplified", sessionId: createNewSession() },
                   }}
                   className="group relative bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left link-simplified"
@@ -48,7 +48,7 @@ export default function ProtectedPage() {
                 {/* Complete Path */}
                 <Link
                   href={{
-                    pathname: "/protected/career-match",
+                    pathname: "/protected/c",
                     query: { path: "completed", sessionId: createNewSession() },
                   }}
                   className="group relative bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-gray-200 hover:shadow-xl transition-all text-left link-complete"

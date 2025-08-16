@@ -43,7 +43,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-gray-700 px-4">
-                <div className="w-12 h-12 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <div className="w-12 h-12 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mt-30"></div>
                 <p className="text-sm font-medium tracking-wide animate-pulse">
                     Loading...
                 </p>
@@ -72,7 +72,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
                 <Link
                     key={session.number_session}
                     href={{
-                        pathname: "/protected/career-match",
+                        pathname: "/protected/c",
                         query: { path: session.path, sessionId: session.number_session },
                     }}
                     onClick={() => {
