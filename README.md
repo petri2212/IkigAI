@@ -7,7 +7,7 @@ Career Match: raccoglie informazioni dall’utente tramite chat bot (CV, compete
 
 Career Coach: guida nella definizione di obiettivi, aggiornamento del profilo e crescita personale e professionale.
 
-Tecnologia: chatbot web con Next.js/React, modelli AI con fine-tuning e integrazione MCP per fonti dati esterne.
+Tecnologia: chatbot web con Next.js, modelli AI con integrazione MCP per fonti dati esterne e sempre aggiorante.
 
 ## First Phase - Literature review 
 
