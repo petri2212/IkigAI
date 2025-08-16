@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     if (path == "simplified") {
       if (stage === "careerCoach") {
-        response = await careerCoachChat(userInput, userId, session);
+        response = await careerCoachChat(userInput, userId, session,"simplified");
       } else {
         response = await chatbotLoopSimplified(
           userInput,
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       }
     } else {
       if (stage === "careerCoach") {
-        response = await careerCoachChat(userInput, userId, session);
+        response = await careerCoachChat(userInput, userId, session, "completed");
       } else {
         response = await chatbotLoopCompleted(
           userInput,
