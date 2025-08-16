@@ -761,6 +761,97 @@ Mantieni un tono professionale ma amichevole. Limita a 400 parole.
     return "Si è verificato un errore durante la ricerca dei lavori.";
   }
 }
+async function getUserData(userId: string, sessionNumber: string): Promise<{ cvText: string; sessionData: string }> {
+  const mcp = await getMcpClient();
+  let cvBase64: string | undefined;
+  let sessionData: string = "";
+
+  // Recupero CV
+  try {
+    const cvResponse = (await mcp.callTool({
+      name: "get-pdf-from-mongo",
+      arguments: { id: userId, session: sessionNumber },
+    })) as ToolResponse;
+    cvBase64 = cvResponse.content?.[0]?.text;
+  } catch (err) {
+    console.error("Errore recupero CV MCP:", err);
+  }
+
+  // Recupero sessione
+  try {
+    const sessionResponse = (await mcp.callTool({
+      name: "get-session-data",
+      arguments: { id: userId, number_session: sessionNumber },
+    })) as ToolResponse;
+    sessionData = sessionResponse.content?.[0]?.text ?? "";
+  } catch (err) {
+    console.error("Errore recupero sessione MCP:", err);
+  }
+
+  // Decodifica PDF
+  let cvText = "";
+  if (cvBase64 && cvBase64.startsWith("JVBER")) {
+    try {
+      cvText = await parsePdfBase64(cvBase64);
+      if (!cvText || cvText.trim().length === 0) cvText = "CV non leggibile";
+    } catch (err) {
+      console.error("Errore decodifica CV:", err);
+      cvText = "Errore nella lettura del CV";
+    }
+  } else {
+    cvText = cvBase64 ? "CV non in formato PDF" : "CV non inserito";
+  }
+
+  return { cvText, sessionData };
+}
+async function generateCareerPlan(cvText: string, sessionData: string): Promise<string> {
+  const prompt = `
+Sei un Career Coach virtuale esperto.
+Hai a disposizione il CV e i dati della sessione dell'utente.
+Analizza attentamente e stila un piano personalizzato per raggiungere gli obiettivi dell'utente.
+Rispondi in modo chiaro, pratico e dettagliato.
+
+CV: ${cvText || "Non disponibile"}
+Sessione: ${sessionData || "Non disponibile"}
+  `;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 800,
+    temperature: 0.6,
+  });
+
+  return completion.choices?.[0]?.message?.content?.trim() ?? 
+         "Non sono riuscito a generare un piano.";
+}
+async function answerUserQuestion(userInput: string, sessionData: string): Promise<string> {
+  const prompt = `
+Sei un Career Coach virtuale esperto.
+Hai a disposizione i dati della sessione dell'utente.
+Rispondi alla seguente domanda in modo chiaro e pratico:
+
+Domanda: ${userInput}
+
+Sessione: ${sessionData || "Non disponibile"}
+  `;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 400,
+    temperature: 0.6,
+  });
+
+  return completion.choices?.[0]?.message?.content?.trim() ?? 
+         "Non so come rispondere a questa domanda.";
+}
 
 export async function chatbotLoopCompleted(
   userInput: string,
@@ -888,8 +979,8 @@ export async function chatbotLoopCompleted(
         arguments: {
           id: userId,
           number_session: sessionNumber,
-          question: "nextMessage",
-          answer: "",
+          question: nextMessage,
+          answer: "+",
           path: path,
         },
       });
@@ -921,23 +1012,74 @@ export async function chatbotLoopCompleted(
     done: session.step >= session.flow.length,
   };
 }
-
+const careerPlanGenerated: Map<string, boolean> = new Map();
 export async function careerCoachChat(
   userInput: string,
   userId: string,
   sessionNumber: string,
-):  Promise<{ message: string }> {
-  const replies = [
-    "💡 BOMBOCLAT",
-    "🚀 Pensa a come le tue competenze possono crescere nei prossimi 5 anni.",
-    "📊 Ti suggerisco di valutare anche settori alternativi.",
-    "✅ Non dimenticare di fare networking, può aprire molte porte.",
-    "🔍 Prova a cercare aziende emergenti nel tuo campo, potrebbero sorprenderti."
-  ];
+  path: string
+): Promise<{ message: string }> {
+  const key = `${userId}-${sessionNumber}`;
+  const mcp = await getMcpClient();
 
-  const randomIndex = Math.floor(Math.random() * replies.length);
+  // 1. Recupera dati utente
+  const { cvText, sessionData } = await getUserData(userId, sessionNumber);
 
-  return { message: replies[1] };
+  let message: string;
+
+  // 2. Se prima volta, genero il piano
+  if (!careerPlanGenerated.get(key)) {
+    message = await generateCareerPlan(cvText, sessionData);
+    careerPlanGenerated.set(key, true);
+    
+console.log(" Salvataggio su Mongo:", {
+   id: userId,
+          number_session: sessionNumber,
+          question: message,
+          answer: "__GENERATE_CAREER_PLAN__",
+          path: path,
+  });
+    // Salvataggio su sessione MCP
+    try {
+      await mcp.callTool({
+        name: "save-session-data",
+        arguments: {
+          id: userId,
+          number_session: sessionNumber,
+          question: message,
+          answer:"__GENERATE_CAREER_PLAN__" ,
+          path: path,
+        },
+      });
+      console.log("Piano salvato su MCP:", message);
+    } catch (err) {
+      console.error("Errore salvataggio piano su MCP:", err);
+    }
+
+    return { message };
+  }
+
+  // 3. Dopo la prima volta, rispondo solo alle domande dell'utente
+  message = await answerUserQuestion(userInput, sessionData);
+
+  // Salvataggio domanda/risposta nella sessione
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: userInput,
+        answer:  message,
+        path: path,
+      },
+    });
+    console.log("Domanda/risposta salvata su MCP:", { question: userInput, answer: message });
+  } catch (err) {
+    console.error("Errore salvataggio domanda/risposta su MCP:", err);
+  }
+
+  return { message };
 }
 
 export async function chatbotLoopSimplified(
