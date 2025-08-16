@@ -315,7 +315,7 @@ export default function ChatPage() {
               </button>
               {/* Menu */}
               {isOpen && (
-                <div className="w-67 ml-2 absolute left-0 mt-1 bg-white border rounded-lg shadow-lg overflow-hidden">
+                <div className="w-67 ml-2 absolute left-0 mt-1 bg-white border rounded-lg shadow-lg">
                   <Link
                     href={{
                       pathname: "/protected/c",
@@ -346,7 +346,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
-                className=" ml-2 px-3 py-2 flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 text-lg font-medium"
+                className="ml-2 px-3 py-2 flex items-center gap-2 rounded-lg transition-colors duration-100 hover:bg-gray-100 hover:w-12 text-lg font-medium"
                 style={{ color: accentColor }}
               >
                 <VscNewFile className="text-2xl" />
@@ -354,7 +354,7 @@ export default function ChatPage() {
 
               {/* Menu */}
               {isOpen && (
-                <div className="w-67 ml-2 absolute left-0 mt-1 bg-white border rounded-lg shadow-lg overflow-hidden">
+                <div className="w-67 ml-2 absolute left-0 mt-1 bg-white border rounded-lg shadow-lg z-60">
                   <Link
                     href={{
                       pathname: "/protected/c",
