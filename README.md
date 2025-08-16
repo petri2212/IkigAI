@@ -32,6 +32,11 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
+- To get `OPENAI_API_KEY`: [OpenAI_API_Key](https://platform.openai.com/api-keys)
+- To get `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` : [ADZUNA](https://developer.adzuna.com/)
+- To get `MONGODB_URI` follow this instructions : [MONGODB_URI](https://www.mongodb.com/docs/manual/reference/connection-string/)
+- To get all `NEXT_PUBLIC_FIREBASE_...` : [FIREBASE](https://firebase.google.com/) -> create a new web project -> make sure to activate in Authentication/Providers the `Email and password`, `Link via Email` and `Google`
+
 - `npm run dev`
 
 ### Requirements
