@@ -600,7 +600,51 @@ Mantieni un tono professionale ma amichevole. Limita a 400 parole.
     return "Si è verificato un errore durante la ricerca dei lavori.";
   }
 }*/
+async function inferSkillsFromCV(
+  userId: string,
+  sessionNumber: string
+): Promise<string | null> {
+  const mcp = await getMcpClient();
+  let cvBase64 = "";
 
+  // Recupero CV
+  try {
+    const cvResponse = (await mcp.callTool({
+      name: "get-pdf-from-mongo",
+      arguments: { id: userId, session: sessionNumber },
+    })) as ToolResponse;
+
+    if (cvResponse.content?.[0]?.text) {
+      cvBase64 = cvResponse.content[0].text;
+    } else {
+      console.warn(`CV non trovato per utente ${userId}`);
+      return null;
+    }
+  } catch (err) {
+    console.error("Errore recupero CV MCP:", err);
+    return null;
+  }
+
+  // Se CV disponibile, chiediamo all'AI di suggerire una professione/skill
+  try {
+    const aiResponse = (await mcp.callTool({
+      name: "analyze-cv-for-skill",
+      arguments: {
+        cvBase64: cvBase64,
+      },
+    })) as ToolResponse;
+
+    if (aiResponse.content?.[0]?.text) {
+      return aiResponse.content[0].text.trim();
+    } else {
+      console.warn(`AI non ha suggerito skill per utente ${userId}`);
+      return null;
+    }
+  } catch (err) {
+    console.error("Errore analisi CV con AI:", err);
+    return null;
+  }
+}
 async function generateJobConclusion(
   userId: string,
   sessionNumber: string
@@ -674,7 +718,7 @@ async function generateJobConclusion(
     const jobTypeArg = normalizeAnswer(tipoContratto);
     const companyArg = normalizeAnswer(azienda);
     const salaryArg = normalizeAnswer(stipendio);
-    const skillsArg = normalizeAnswer(skills);
+    let skillsArg = normalizeAnswer(skills);
 
     console.log("DEBUG SKILLS:", skillsArg);
     console.log("DEBUG countryCode:", countryCode);
@@ -682,6 +726,16 @@ async function generateJobConclusion(
     console.log("DEBUG jobTypeArg:", jobTypeArg);
     console.log("DEBUG companyArg:", companyArg);
     console.log("DEBUG salaryArg:", salaryArg);
+
+    if (!skillsArg) {
+      const inferredSkill = await inferSkillsFromCV(userId, sessionNumber);
+      if (inferredSkill) {
+        skillsArg = inferredSkill;
+        console.log(`Skills inferite dal CV: ${skillsArg}`);
+      } else {
+        console.warn("Nessuna skill inferita dal CV, skillsArg rimane vuoto");
+      }
+    }
 
     // Chiamata tool MCP per ricerca lavori
     const jobsResponse = (await mcp.callTool({
@@ -761,7 +815,10 @@ Mantieni un tono professionale ma amichevole. Limita a 400 parole.
     return "Si è verificato un errore durante la ricerca dei lavori.";
   }
 }
-async function getUserData(userId: string, sessionNumber: string): Promise<{ cvText: string; sessionData: string }> {
+async function getUserData(
+  userId: string,
+  sessionNumber: string
+): Promise<{ cvText: string; sessionData: string }> {
   const mcp = await getMcpClient();
   let cvBase64: string | undefined;
   let sessionData: string = "";
@@ -804,7 +861,10 @@ async function getUserData(userId: string, sessionNumber: string): Promise<{ cvT
 
   return { cvText, sessionData };
 }
-async function generateCareerPlan(cvText: string, sessionData: string): Promise<string> {
+async function generateCareerPlan(
+  cvText: string,
+  sessionData: string
+): Promise<string> {
   const prompt = `
 Sei un Career Coach virtuale esperto.
 Hai a disposizione il CV e i dati della sessione dell'utente.
@@ -825,10 +885,15 @@ Sessione: ${sessionData || "Non disponibile"}
     temperature: 0.6,
   });
 
-  return completion.choices?.[0]?.message?.content?.trim() ?? 
-         "Non sono riuscito a generare un piano.";
+  return (
+    completion.choices?.[0]?.message?.content?.trim() ??
+    "Non sono riuscito a generare un piano."
+  );
 }
-async function answerUserQuestion(userInput: string, sessionData: string): Promise<string> {
+async function answerUserQuestion(
+  userInput: string,
+  sessionData: string
+): Promise<string> {
   const prompt = `
 Sei un Career Coach virtuale esperto.
 Hai a disposizione i dati della sessione dell'utente.
@@ -849,8 +914,10 @@ Sessione: ${sessionData || "Non disponibile"}
     temperature: 0.6,
   });
 
-  return completion.choices?.[0]?.message?.content?.trim() ?? 
-         "Non so come rispondere a questa domanda.";
+  return (
+    completion.choices?.[0]?.message?.content?.trim() ??
+    "Non so come rispondere a questa domanda."
+  );
 }
 
 export async function chatbotLoopCompleted(
@@ -859,7 +926,7 @@ export async function chatbotLoopCompleted(
   sessionNumber: string,
   path: string,
   topics: string[] = ["ingegneria meccanica"] // corretto il typo
-): Promise<{ message: string; done: boolean ; mode?: "career_coach"; }> {
+): Promise<{ message: string; done: boolean; mode?: "career_coach" }> {
   const mcp = await getMcpClient();
   const sessionKey = `${userId}-${sessionNumber}`;
 
@@ -986,8 +1053,7 @@ export async function chatbotLoopCompleted(
       });
       sessions.delete(sessionKey);
       return {
-        message:
-          `${nextMessage}`,
+        message: `${nextMessage}`,
         done: true,
         mode: "career_coach", // <--- nuovo flag
       };
@@ -1012,6 +1078,124 @@ export async function chatbotLoopCompleted(
     done: session.step >= session.flow.length,
   };
 }
+
+export async function chatbotLoopSimplified(
+  userInput: string,
+  userId: string,
+  sessionNumber: string,
+  path: string
+): Promise<{ message: string; done: boolean; mode?: "career_coach" }> {
+  const mcp = await getMcpClient();
+  const sessionKey = `${userId}-${sessionNumber}`;
+
+  let session = sessions.get(sessionKey);
+
+  // Domande aggiuntive fisse
+  const additionalQuestions = [
+    {
+      question:
+        "In che paese vorresti lavorare, scegli tra queste opzioni: italia, francia, inghilterra, germania, polonia",
+    },
+    { question: "In che città vorresti lavorare?" },
+    {
+      question:
+        "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)",
+    },
+    { question: "Hai in mente qualche azienda specifica, digita il nome?" },
+    {
+      question:
+        "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)",
+    },
+  ];
+
+  // Se nuova sessione, usa solo domande aggiuntive
+  if (!session) {
+    session = { step: 0, answers: [], flow: additionalQuestions };
+    sessions.set(sessionKey, session);
+  }
+
+  // Chiamata di inizializzazione
+  if (userInput === "__INIT__") {
+    return {
+      message: session.flow[0].question,
+      done: false,
+    };
+  }
+// Domanda esterna
+if (isUserAskingQuestion(userInput)) {
+  const aiAnswer = await answerExternalQuestion(userInput);
+
+  console.log("Salvataggio domanda esterna su Mongo:", {
+    id: userId,
+    number_session: sessionNumber,
+    question: userInput,
+    answer: aiAnswer,
+    step: session.step + 1,
+    totalQuestions: session.flow.length,
+    questionType: "external",
+  });
+
+  try {
+    await mcp.callTool({
+      name: "save-session-data",
+      arguments: {
+        id: userId,
+        number_session: sessionNumber,
+        question: userInput,
+        answer: aiAnswer,
+        path: path,
+      },
+    });
+  } catch (err) {
+    console.error("Errore salvataggio dati MCP:", err);
+  }
+
+  // Non salvare di nuovo come domanda del flow
+  return {
+    message: aiAnswer,
+    done: false,
+  };
+}
+
+// Se non è domanda esterna, salva la domanda del flow
+const prevQuestion = session.flow[session.step].question;
+
+console.log("Salvataggio domanda flow su Mongo:", {
+  id: userId,
+  number_session: sessionNumber,
+  question: prevQuestion,
+  answer: userInput,
+  step: session.step + 1,
+  totalQuestions: session.flow.length,
+  questionType: "additional",
+});
+
+try {
+  await mcp.callTool({
+    name: "save-session-data",
+    arguments: {
+      id: userId,
+      number_session: sessionNumber,
+      question: prevQuestion,
+      answer: userInput,
+      path: path,
+    },
+  });
+} catch (err) {
+  console.error("Errore salvataggio dati MCP:", err);
+}
+
+
+  // Prossima domanda
+  const nextMessage =
+    session.flow[session.step]?.question ??
+    "Ottimo, hai finito le domande ora ti do la conclusione.";
+
+  return {
+    message: nextMessage,
+    done: false,
+  };
+}
 const careerPlanGenerated: Map<string, boolean> = new Map();
 export async function careerCoachChat(
   userInput: string,
@@ -1031,14 +1215,14 @@ export async function careerCoachChat(
   if (!careerPlanGenerated.get(key)) {
     message = await generateCareerPlan(cvText, sessionData);
     careerPlanGenerated.set(key, true);
-    
-console.log(" Salvataggio su Mongo:", {
-   id: userId,
-          number_session: sessionNumber,
-          question: message,
-          answer: "__GENERATE_CAREER_PLAN__",
-          path: path,
-  });
+
+    console.log(" Salvataggio su Mongo:", {
+      id: userId,
+      number_session: sessionNumber,
+      question: message,
+      answer: "__GENERATE_CAREER_PLAN__",
+      path: path,
+    });
     // Salvataggio su sessione MCP
     try {
       await mcp.callTool({
@@ -1047,7 +1231,7 @@ console.log(" Salvataggio su Mongo:", {
           id: userId,
           number_session: sessionNumber,
           question: message,
-          answer:"__GENERATE_CAREER_PLAN__" ,
+          answer: "__GENERATE_CAREER_PLAN__",
           path: path,
         },
       });
@@ -1070,99 +1254,17 @@ console.log(" Salvataggio su Mongo:", {
         id: userId,
         number_session: sessionNumber,
         question: userInput,
-        answer:  message,
+        answer: message,
         path: path,
       },
     });
-    console.log("Domanda/risposta salvata su MCP:", { question: userInput, answer: message });
+    console.log("Domanda/risposta salvata su MCP:", {
+      question: userInput,
+      answer: message,
+    });
   } catch (err) {
     console.error("Errore salvataggio domanda/risposta su MCP:", err);
   }
 
   return { message };
-}
-
-export async function chatbotLoopSimplified(
-  userInput: string,
-  userId: string,
-  sessionNumber: string,
-  path: string,
-  topics: string[] = ["ingegenria meccanica"] // argomenti di default
-): Promise<{ message: string; done: boolean }> {
-  const mcp = await getMcpClient();
-  const sessionKey = `${userId}-${sessionNumber}`;
-
-  let session = sessions.get(sessionKey);
-
-  // Se nuova sessione, genera domande dall'AI
-  if (!session) {
-    const generatedQuestions = await generateQuestions(topics);
-
-    session = { step: 0, answers: [], flow: generatedQuestions };
-    sessions.set(sessionKey, session);
-  }
-
-  // Se chiamata di inizializzazione (__INIT__) → restituisci la prima domanda senza salvare
-  if (userInput === "__INIT__") {
-    return {
-      message: session.flow[0].question,
-      done: false,
-    };
-  }
-
-  // Se finite le domande
-  if (session.step >= session.flow.length) {
-    sessions.delete(sessionKey);
-    return {
-      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
-      done: true,
-    };
-  }
-
-  // Se l'utente fa domanda esterna
-  if (isUserAskingQuestion(userInput)) {
-    const aiAnswer = await answerExternalQuestion(userInput);
-    return {
-      message: aiAnswer,
-      done: false,
-    };
-  }
-
-  // Salvo risposta precedente in MCP
-  const prevQuestion = session.flow[session.step].question;
-
-  console.log("💾 Salvataggio su Mongo:", {
-    id: userId,
-    number_session: sessionNumber,
-    question: prevQuestion,
-    answer: userInput,
-  });
-
-  try {
-    await mcp.callTool({
-      name: "save-session-data",
-      arguments: {
-        id: userId,
-        number_session: sessionNumber,
-        question: prevQuestion,
-        answer: userInput,
-        path: path,
-      },
-    });
-  } catch (err) {
-    console.error("Errore salvataggio dati MCP:", err);
-  }
-
-  session.answers.push(userInput);
-
-  // Prossima domanda
-  session.step += 1;
-  sessions.set(sessionKey, session);
-
-  return {
-    message:
-      session.flow[session.step]?.question ??
-      "Ottimo, hai finito le domande ora ti do la conclusione.",
-    done: session.step >= session.flow.length,
-  };
 }
