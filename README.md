@@ -17,7 +17,7 @@ We used portals such as Google Scholar, DBPL.org, SemanticScholar, SCOPUS, Web o
 
 - `git clone https://github.com/petri2212/IkigAI.git`
 - `cd` to repo
-- `npm install`Crea un file `.env.local` nella root del progetto con il seguente contenuto:
+- `npm install`
 - create `.env`(if you do .local) in the root of the project with the following environment variables:
 ```
 OPENAI_API_KEY=...
