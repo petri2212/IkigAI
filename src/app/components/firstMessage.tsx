@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from "react";
 
 
-type Message = {
+export type Message = {
   sender: "user" | "bot";
   text: string;
 };

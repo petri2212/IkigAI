@@ -1,4 +1,3 @@
-// /app/api/getSessionMessages/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
@@ -38,7 +37,7 @@ export async function GET(req: NextRequest) {
     }
 
     const firstBlock = content[0];
-    
+
     // Responce from MCP
     let data: any;
     if (firstBlock.type === "json") {
@@ -52,7 +51,7 @@ export async function GET(req: NextRequest) {
     } else {
       return NextResponse.json({ error: "Invalid content type from MCP" }, { status: 500 });
     }
-    
+
     if (!data.success) {
       return NextResponse.json({ error: data.error || "Session not found", q_and_a: [] }, { status: 404 });
     }

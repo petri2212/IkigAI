@@ -4,7 +4,6 @@ import {
   chatbotLoopSimplified,
   careerCoachChat,
 } from "@/application/chatbotLoop";
-import { resolveSoa } from "node:dns";
 
 export async function POST(req: Request) {
   try {
@@ -12,11 +11,11 @@ export async function POST(req: Request) {
 
     let response: any;
     console.log("USER INPUT ", userInput);
-     console.log("STAGE ", stage);
+    console.log("STAGE ", stage);
 
     if (path == "simplified") {
       if (stage === "careerCoach") {
-        response = await careerCoachChat(userInput, userId, session,"simplified");
+        response = await careerCoachChat(userInput, userId, session, "simplified");
       } else {
         response = await chatbotLoopSimplified(
           userInput,

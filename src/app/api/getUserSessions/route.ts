@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 
+// Session Data model
 export type Session = {
   id: string;
   number_session: string;
@@ -13,13 +14,13 @@ export type Session = {
   }[];
 };
 
-// GET /api/getUserSessions?uid=...
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const uid = searchParams.get("uid");
     if (!uid) return NextResponse.json({ error: "Missing UID" }, { status: 400 });
 
+    // MCP
     const mcp = await getMcpClient();
     const response = await mcp.callTool({
       name: "get-all-user-sessions",
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     const sessions: Session[] = content
       .map((block) => {
         try {
-          return JSON.parse(block.text); // parse JSON string in Session object
+          return JSON.parse(block.text);
         } catch {
           return null;
         }
