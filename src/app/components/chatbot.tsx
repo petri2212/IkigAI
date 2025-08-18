@@ -1,147 +1,93 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation"; // lets you read the current URL's search parameters
 import Link from "next/link";
 import Image from "next/image";
-import { Manrope } from "next/font/google";
-// Pdfhandler
-import { handlePdfUpload } from "@/application/uploadPdf";
-// In order to get user id
-import { auth } from "@/infrastructure/firebase/config";
-// uuid for creating a unique session token
-import { v4 as uuidv4 } from "uuid";
-import ReactMarkdown from "react-markdown";
+import { Manrope } from "next/font/google"; // Font
+import { handlePdfUpload } from "@/application/uploadPdf"; // Pdfhandler
+import { auth } from "@/infrastructure/firebase/config"; // Get user id
+import ReactMarkdown from "react-markdown"; // For indentation printing
 // Icons
 import { MdPictureAsPdf } from "react-icons/md";
 import { VscNewFile } from "react-icons/vsc";
 import { FaArrowCircleRight, FaUser } from "react-icons/fa";
 import { HiX } from "react-icons/hi";
-// Typing animation
-import { Typewriter } from "react-simple-typewriter";
+
+import { Typewriter } from "react-simple-typewriter"; // Typing animation
+
+// Import chatHistory and Messages
 import createNewSession from "./pathcard";
-import { Session } from "../api/getUserSessions/route";
 import ChatHistory, { ChatHistoryRef } from "./chatHistory";
 import SessionMessages from "./sessionMessages";
 
+import { Message } from "./firstMessage"; // Message model
+
+// Main Chat Area Font
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
 
-type Message = {
-  sender: "user" | "bot";
-  text: string;
-};
+
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
-  const path = searchParams.get("path");
-  const sessionIdparam = searchParams.get("sessionId");
   // Path determination
+  const path = searchParams.get("path");
   const isSimplified = path === "simplified";
-  const sessionID = sessionIdparam;
+  // History refresh
   const historyRef = useRef<ChatHistoryRef>(null);
   // uid and session token
   const [uid, setUid] = useState<string | null>(null);
-  //const [sessionId, setSessionId] = useState<string | null>(null);
-
+  // Session
+  const sessionIdparam = searchParams.get("sessionId");
+  const sessionID = sessionIdparam;
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
-  // Flow
+  // Stages
   const [stage, setStage] = useState<
     "askCV" | "waitingForCV" | "chatting" | "careerCoach"
   >("waitingForCV");
-  const [userSessions, setUserSessions] = useState<Session[]>([]);
 
+  // Stick to the bottom when new chat messages
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Continuous focus on the textArea
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Chat messages
+  // CHAT
+  // Input textArea
   const [input, setInput] = useState("");
+  // Chat messages
   const [messages, setMessages] = useState<Message[]>([]);
+  // Loading bot answer
   const [isLoading, setIsLoading] = useState(false);
+  // textArea Submit button
   const [hovered, setHovered] = useState(false);
+  // Initial Animation
   const [hasStarted, setHasStarted] = useState(false);
   const [isFirst, setIsFirst] = useState(true);
-
+  // New Chat Menu
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // PDF uploading animation
+  const [PdfUploading, setPdfUploading] = useState(false);
 
 
   // Main colors based on path
   const accentColor = isSimplified ? "rgba(46, 105, 160, 1)" : "#2b9f55ff";
   const textColor = isSimplified ? "#1e3a8a" : "#2b9f55ff";
-  const accentBg = isSimplified
-    ? "var(--color-blue-light)"
-    : "var(--color-green-light)";
+  const accentBg = isSimplified ? "var(--color-blue-light)" : "var(--color-green-light)";
   const accentHover = isSimplified ? "#1e3a8a" : "#16a34a";
   const placeholderColor = isSimplified ? "#95a6d6ff" : "#a4d695ff";
-  const lightBG = isSimplified ? "#1643c13a" : "#47d02139";
   const baseColor = "#6b7280";
-  const imageSrc = isSimplified
-    ? "/images/wallpaper1.png"
-    : "/images/wallpaper2.png";
+  // BG images
+  const imageSrc = isSimplified ? "/images/wallpaper1.png" : "/images/wallpaper2.png";
 
-  // Scroll effect
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
-
-  // Session Generation
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        setUid(user.uid);
-      } else {
-        setUid(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Animation Effects
-  useEffect(() => {
-    if (!hasStarted && isFirst) {
-      setIsFirst(false);
-      const timer0 = setTimeout(() => {
-        setFadeOut(true);
-      }, 2500);
-      const timer1 = setTimeout(() => {
-        setHasStarted(true);
-      }, 3000);
-
-      return () => {
-        clearTimeout(timer0);
-        clearTimeout(timer1);
-      };
-    }
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted && !isFirst) {
-      setIsFirst(false);
-      const timer0 = setTimeout(() => {
-        setFadeOut(true);
-      }, 200);
-      const timer1 = setTimeout(() => {
-        setHasStarted(true);
-      }, 900);
-
-      return () => {
-        clearTimeout(timer0);
-        clearTimeout(timer1);
-      };
-    }
-  }, [hasStarted]);
-
-  const handleClick = () => {
-    setMessages([]);
-  };
-
-  const handleSelectSession = (sessionID: string) => {
-    // Aggiorna sessionId corrente, pulisce messaggi e refresha la history
+  // Clean chat messages and chatHistory refresh
+  const handleSelectSession = () => {
     setMessages([]);
     setHasStarted(false);
     historyRef.current?.refresh();
@@ -152,22 +98,24 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim()) return;
 
+    // Set messages in the chat
     const userMessage: Message = { sender: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
 
+    // Clean Input
     setInput("");
 
-    // Reimposta il focus dopo il re-render
+    // Re-focus on Input after submit
     requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (el) {
-        el.focus();
-        // caret alla fine (utile su mobile)
-        const len = el.value.length;
-        el.setSelectionRange(len, len);
+      const textArea = textareaRef.current;
+      if (textArea) {
+        textArea.focus();
+        const len = textArea.value.length;
+        textArea.setSelectionRange(len, len);
       }
     });
 
+    // Await Bot response animation
     setIsLoading(true);
 
     try {
@@ -176,18 +124,21 @@ export default function ChatPage() {
       if (stage === "waitingForCV") {
         setStage("chatting");
         console.log("sessionID");
+        // First Universal Message
         const botResponse = await mockBotResponse(
           "__INIT__",
           uid,
           sessionID,
           path
         );
+        // Print
         setMessages((prev) => [
           ...prev,
           { sender: "bot", text: botResponse.message },
         ]);
       } else if (stage === "chatting") {
         console.log("sessionID");
+        // AI response
         const botResponse = await mockBotResponse(
           input.trim(),
           uid,
@@ -198,16 +149,17 @@ export default function ChatPage() {
           ...prev,
           { sender: "bot", text: botResponse.message },
         ]);
-        // Se il backend segnala cambio modalità
+
+        // Carrer Coach
         if (botResponse.mode === "career_coach") {
           setStage("careerCoach");
-           setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?"},
-        ]);
+          setMessages((prev) => [
+            ...prev,
+            { sender: "bot", text: "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?" },
+          ]);
         }
       } else if (stage === "careerCoach") {
-        // qui chiami direttamente la modalità libera (es: path = "career_coach")
+        // AI response
         const botResponse = await mockBotResponse(
           input.trim(),
           uid,
@@ -231,9 +183,67 @@ export default function ChatPage() {
     }
   };
 
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // New Chat
+  const handleNewChat = () => {
+    historyRef.current?.refresh();
+    setMessages([]);
+    setHasStarted(false);
+  };
 
+  // Scroll effect
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  // Get uid
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setUid(user.uid);
+      } else {
+        setUid(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Animation Effects
+  useEffect(() => {
+    if (!hasStarted && isFirst) {
+      const timer0 = setTimeout(() => {
+        setFadeOut(true);
+      }, 2500);
+      const timer1 = setTimeout(() => {
+        setHasStarted(true);
+        setIsFirst(false);
+      }, 3000);
+
+      return () => {
+        clearTimeout(timer0);
+        clearTimeout(timer1);
+      };
+    }
+  }, [hasStarted]);
+
+  useEffect(() => {
+    if (!hasStarted && !isFirst) {
+      const timer0 = setTimeout(() => {
+        setFadeOut(true);
+      }, 200);
+      const timer1 = setTimeout(() => {
+        setHasStarted(true);
+      }, 900);
+
+      return () => {
+        clearTimeout(timer0);
+        clearTimeout(timer1);
+      };
+    }
+  }, [hasStarted]);
+
+
+  // Close "New Chat" Menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -244,20 +254,14 @@ export default function ChatPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleNewChat = () => {
-    historyRef.current?.refresh();
-    setMessages([]);
-    setHasStarted(false);
-  };
 
   // UI
   return (
-    <div className="flex h-screen bg-blue-200">
+    <div className="flex h-screen">
       {/* SIDEBAR */}
       <aside
-        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${
-          sidebarOpen ? "w-72" : "w-16"
-        }`}
+        className={`flex flex-col bg-white border-r border-gray-300 transition-all duration-300 ${sidebarOpen ? "w-72" : "w-16"
+          }`}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-2 h-16 border-gray-200 ">
@@ -300,10 +304,11 @@ export default function ChatPage() {
         </div>
 
         <div>
+          {/* SIDEBAR OPEN */}
           {sidebarOpen ? (
             <div className="relative inline-block" ref={menuRef}>
 
-              {/* Pulsante apertura menu */}
+              {/* Open Menu Button */}
               <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
@@ -313,6 +318,7 @@ export default function ChatPage() {
                 <VscNewFile className="text-2xl" />
                 New Chat
               </button>
+
               {/* Menu */}
               {isOpen && (
                 <div className="w-67 ml-2 absolute left-0 mt-1 bg-white border rounded-lg shadow-lg">
@@ -340,9 +346,11 @@ export default function ChatPage() {
               )}
             </div>
           ) : (
-            <div className="relative inline-block" ref={menuRef}>
 
-              {/* Pulsante apertura menu */}
+            <div className="relative inline-block" ref={menuRef}>
+              {/* SIDEBAR CLOSED */}
+
+              {/* Open Menu Button */}
               <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
@@ -378,21 +386,16 @@ export default function ChatPage() {
                 </div>
               )}
             </div>
-
           )}
-
         </div>
 
         {/* New Chat Button */}
-
+        {/* Is not shown when sidebar is closed */}
         {sidebarOpen ? (
-          <div onClick={handleClick}>
-            <ChatHistory uid={uid!} ref={historyRef} onSelectSession={handleSelectSession} />
-          </div>
+          <ChatHistory uid={uid!} ref={historyRef} onSelectSession={handleSelectSession} />
         ) : (
           <p></p>
         )}
-
       </aside>
 
       {/* MAIN CHAT AREA */}
@@ -429,30 +432,38 @@ export default function ChatPage() {
         {/* MESSAGES AREA */}
         <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative">
           <div className="max-w-[60%] mx-auto space-y-4">
+            {/* IF is the fist time: Welcome message*/}
             {!hasStarted ? (
               <div
                 className={`flex-1 flex items-start justify-center transition-opacity duration-400 mt-[40%]`}
                 style={{ opacity: fadeOut ? 0 : 1 }}
               >
                 <div className="text-center max-w-md bg-white/70 backdrop-blur-md rounded-lg text-4xl font-semibold mb-4 ">
-                  <Typewriter
-                    words={["Welcome to IkigAI"]}
-                    loop={true}
-                    typeSpeed={100}
-                  />
+                  {/* IF is the fist time: Welcome message*/}
+                  {isFirst ? (
+                    <Typewriter
+                      words={["Welcome to IkigAI"]}
+                      loop={true}
+                      typeSpeed={100}
+                    />
+                  ) : (
+                    <p></p>
+                  )}
+
                 </div>
               </div>
             ) : (
               <div>
+                {/* Search for messages using sessionID and uid */}
                 <SessionMessages uid={uid!} sessionId={sessionID!} />
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`flex items-start mt-10 gap-3 ${
-                      msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-                    }`}
+                    className={`flex items-start mt-10 gap-3 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                      }`}
                   >
                     <div className="flex-shrink-0 w-9 h-9 mt-1 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                      {/* Icons */}
                       {msg.sender === "bot" ? (
                         <Image
                           src="/images/logo3.png"
@@ -465,7 +476,7 @@ export default function ChatPage() {
                         <FaUser size={16} />
                       )}
                     </div>
-
+                    {/* Messages bg colors */}
                     <div
                       className="px-5 py-3 rounded-3xl text-base leading-relaxed shadow-md backdrop-blur-md"
                       style={{
@@ -477,12 +488,14 @@ export default function ChatPage() {
                         maxWidth: "75%",
                       }}
                     >
+                      {/* Output */}
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
+                {/* Loading animation */}
                 {isLoading && (
-                  <div className="flex items-start gap-3 animate-pulse">
+                  <div className="flex items-start gap-3 mt-10 animate-pulse">
                     <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
                       <Image
                         src="/images/logo3.png"
@@ -497,6 +510,25 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
+                {/* PDF uploading animation */}
+                {PdfUploading && (
+                  <div className="flex items-start gap-3 mt-10 animate-pulse">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-gray-700 shadow-sm">
+                      <Image
+                        src="/images/logo3.png"
+                        alt="IkigAI Logo"
+                        width={16}
+                        height={16}
+                        priority
+                      />
+                    </div>
+                    <div className="px-5 py-3 rounded-3xl text-base text-gray-600 italic bg-white/40 backdrop-blur-md shadow-md flex items-center gap-2">
+                      <MdPictureAsPdf style={{ fontSize: "1.5rem" }} />
+                      Uploading PDF
+                    </div>
+
+                  </div>
+                )}
 
                 <div ref={messagesEndRef} />
               </div>
@@ -508,11 +540,10 @@ export default function ChatPage() {
         <form
           onSubmit={handleSubmit}
           className={`mx-auto flex items-center justify-center gap-2 w-full max-w-[60%] backdrop-blur-md bg-white/70 transition-all duration-450
-                    ${
-                      hasStarted
-                        ? "sticky bottom-10"
-                        : "sticky bottom-[25%] translate-y"
-                    }
+                    ${!isFirst
+              ? "sticky bottom-10"
+              : "sticky bottom-[25%] translate-y"
+            }
                     `}
           style={{
             borderColor: accentColor,
@@ -541,17 +572,20 @@ export default function ChatPage() {
                     const file = e.target.files[0];
                     if (uid && sessionID) {
                       try {
+                        setPdfUploading(true);
                         const result = await handlePdfUpload(
                           file,
                           uid,
                           sessionID
                         );
+
                         if (result.success) {
+                          setPdfUploading(false);
                           setMessages((prev) => [
                             ...prev,
                             { sender: "bot", text: "The PDF is uploaded." },
                           ]);
-                          setStage("chatting"); // Avanza al prossimo step
+                          setStage("chatting");
                           setIsLoading(true);
                           try {
                             const botResponse = await mockBotResponse(
@@ -576,12 +610,14 @@ export default function ChatPage() {
                             setIsLoading(false);
                           }
                         } else {
+                          setPdfUploading(false);
                           setMessages((prev) => [
                             ...prev,
                             { sender: "bot", text: "Failed to upload PDF." },
                           ]);
                         }
                       } catch (err) {
+
                         setMessages((prev) => [
                           ...prev,
                           { sender: "bot", text: "Error uploading PDF." },
@@ -655,7 +691,7 @@ async function mockBotResponse(
   uid: string | null,
   session: string | null,
   path: string | null,
-  stage?: string  
+  stage?: string
 ): Promise<BotResponse> {
   const res = await fetch("/api/chatbot", {
     method: "POST",
