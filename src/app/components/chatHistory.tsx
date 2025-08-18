@@ -2,11 +2,13 @@ import Link from "next/link";
 import { Session } from "@/app/api/getUserSessions/route";
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 
+// History model
 type HistoryProps = {
     uid: string;
-    onSelectSession?: (sessionId: string) => void; // callback quando si clicca su una chat
+    onSelectSession?: (sessionId: string) => void;
 };
 
+// Refresh History
 export type ChatHistoryRef = {
     refresh: () => void;
 };
@@ -18,6 +20,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
     const fetchSessions = async () => {
         try {
             setLoading(true);
+            // API request
             const res = await fetch(`/api/getUserSessions?uid=${uid}`);
             const data = await res.json();
             setSessions(data.sessions || []);
@@ -29,7 +32,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
         }
     };
 
-    // Espone la funzione di refresh al componente genitore
+   
     useImperativeHandle(ref, () => ({
         refresh: fetchSessions
     }));
@@ -40,6 +43,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
         }
     }, [uid]);
 
+    // Loading history
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-gray-700 px-4">
@@ -59,6 +63,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
         );
     }
 
+    // Sorted by timestamp, last modified chat is First
     const sortedSessions = [...sessions].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -80,7 +85,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
                     }}
                     className={`flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
                             hover:shadow-md transition-all duration-100 group
-                            ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:border-green-800 text-green-800"}`}
+                            ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:bg-green-50 text-green-800"}`}
                 >
                     <div className="flex flex-col">
                         <span

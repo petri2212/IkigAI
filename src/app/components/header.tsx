@@ -110,7 +110,7 @@ export default function Header({ loading = false }: HeaderProps) {
               disabled={signOutLoading}
               className="bg-red-600/80 hover:bg-red-700/90 text-white font-bold py-2 px-4 rounded-xl transition"
             >
-              {signOutLoading ? 'Logout...' : 'Logout'}
+              Logout
             </button>
           )}
         </div>

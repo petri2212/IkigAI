@@ -9,8 +9,6 @@ export default function Chat() {
   if (loading) {
     return <LoadingPage />;
   }
-
-
   return (
     <ChatPage />
   );

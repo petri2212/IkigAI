@@ -140,6 +140,7 @@ server.resource(
     };
   }
 );
+
 server.tool(
   "analyze-cv-for-skill",
   "Analizza il CV dell'utente e restituisce una skill/professione principale",
@@ -401,9 +402,10 @@ server.tool(
   }
 );*/
 //create pdf to mongo
+
 server.tool(
   "save-pdf-to-mongo",
-  "Save a local PDF file to MongoDB",
+  "Save an uploaded PDF file to MongoDB",
   {
     id: z.string(), // unique id of the user
     pdf: z.string(), // base64 encoded PDF
@@ -642,6 +644,8 @@ server.tool(
     };
   }
 );
+
+
 //save session data
 server.tool(
   "save-session-data",

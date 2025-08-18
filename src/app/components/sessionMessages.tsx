@@ -6,13 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { FaUser } from "react-icons/fa";
 import type { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
 import { sendFirstBotMessage } from "./firstMessage";
-
-
-
-type Message = {
-    sender: "user" | "bot";
-    text: string;
-};
+import { Message } from "@/app/components/firstMessage"
 
 type SessionMessagesProps = {
     uid: string;
@@ -26,7 +20,7 @@ export default function SessionMessages({ uid, sessionId }: SessionMessagesProps
     );
     const [isFetching, setIsFetching] = useState(false); // loading chat
     const [isTyping, setIsTyping] = useState(false); // bot typing
-    const [hasStarted, setHasStarted] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false); // For animation
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const scrollToBottom = () => {

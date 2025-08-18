@@ -3,7 +3,7 @@ import Link from "next/link";
 import useProtection from "../hooks/pageProtector";
 import LoadingPage from "@/app/components/loading";
 import Header from "../components/header";
-import createNewSession from "../components/pathcard";
+import createNewSession from "../../application/createNewSession";
 
 export default function ProtectedPage() {
   const loading = useProtection();

@@ -17,7 +17,7 @@ import { HiX } from "react-icons/hi";
 import { Typewriter } from "react-simple-typewriter"; // Typing animation
 
 // Import chatHistory and Messages
-import createNewSession from "./pathcard";
+import createNewSession from "../../application/createNewSession";
 import ChatHistory, { ChatHistoryRef } from "./chatHistory";
 import SessionMessages from "./sessionMessages";
 

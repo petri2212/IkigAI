@@ -13,7 +13,6 @@ export default function SignInPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [signInWithEmailAndPassword] = useSignInWithEmailAndPassword(auth);
-    
     const router = useRouter();
     const provider = new GoogleAuthProvider();
 

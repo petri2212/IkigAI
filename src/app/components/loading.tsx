@@ -1,5 +1,6 @@
 "use client";
 
+// Loading page
 export default function LoadingPage() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center text-gray-900 z-50 px-4 bg-backround">
