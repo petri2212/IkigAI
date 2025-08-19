@@ -793,7 +793,7 @@ Scrivi una conclusione professionale che:
 3. Dia consigli pratici per candidarsi
 4. Motivi l'utente nel percorso professionale
 
-Mantieni un tono professionale ma amichevole. Limita a 400 parole.
+Mantieni un tono professionale ma amichevole. Limita a 500 parole(quindi nel caso riassumi) come ultima frase del messaggio chiedigli "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?".
 `;
 
     const completion = await openai.chat.completions.create({
@@ -902,6 +902,7 @@ Rispondi alla seguente domanda in modo chiaro e pratico:
 Domanda: ${userInput}
 
 Sessione: ${sessionData || "Non disponibile"}
+Se la domanda è un ringraziamento o qualcosa del genere ringrazia, e poi chiedi se ha bisogno di altro
   `;
 
   const completion = await openai.chat.completions.create({
@@ -919,7 +920,7 @@ Sessione: ${sessionData || "Non disponibile"}
     "Non so come rispondere a questa domanda."
   );
 }
-
+let conclusion = false;
 export async function chatbotLoopCompleted(
   userInput: string,
   userId: string,
@@ -964,29 +965,27 @@ export async function chatbotLoopCompleted(
   }
 
   // Se chiamata di inizializzazione (__INIT__) → restituisci la prima domanda senza salvare
-  if (userInput === "__INIT__") {
+  if (userInput === "__INIT__" || userInput === "__INIT__1") {
     return {
       message: session.flow[0].question,
       done: false,
     };
   }
+   
 
-  // Se finite tutte le domande (ikigai + aggiuntive)
-  if (session.step >= session.flow.length) {
-    sessions.delete(sessionKey);
-    return {
-      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
-      done: true,
-    };
-  }
 
-  // Se l'utente fa domanda esterna
+  /*
   if (isUserAskingQuestion(userInput)) {
     const aiAnswer = await answerExternalQuestion(userInput);
     return {
       message: aiAnswer,
       done: false,
     };
+  }*/
+ if (isUserAskingQuestion(userInput)) {
+    const { sessionData } = await getUserData(userId, sessionNumber);
+    const aiAnswer = await answerUserQuestion(userInput, sessionData);
+    return { message: aiAnswer, done: false};
   }
 
   // Salvo risposta precedente in MCP
@@ -1003,7 +1002,7 @@ export async function chatbotLoopCompleted(
     step: session.step + 1,
     totalQuestions: session.flow.length,
     questionType: questionType,
-  });
+  }, "conclusione: ", conclusion);
 
   try {
     await mcp.callTool({
@@ -1019,6 +1018,25 @@ export async function chatbotLoopCompleted(
   } catch (err) {
     console.error("Errore salvataggio dati MCP:", err);
   }
+
+   // Se finite tutte le domande (ikigai + aggiuntive)
+  if (conclusion) {
+    console.log("SIAMO AL CAREER COACH BABY, session stesp ", session.step)
+    sessions.delete(sessionKey);
+    
+    /*
+    return {
+      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
+      done: true,
+    };*/
+    return {
+       message: "Procedo a creare il piano personalizzato...",
+        done: true,
+        mode: "career_coach", // <--- nuovo flag
+      };
+  }
+
+  
 
   session.answers.push(userInput);
 
@@ -1039,27 +1057,11 @@ export async function chatbotLoopCompleted(
     nextMessage = transitionText;
   } else if (session.step >= session.flow.length) {
     // Siamo all'ultima domanda dopo ikigai, genera la conclusione con lavori
-    nextMessage = await generateJobConclusion(userId, sessionNumber);
-    try {
-      await mcp.callTool({
-        name: "save-session-data",
-        arguments: {
-          id: userId,
-          number_session: sessionNumber,
-          question: nextMessage,
-          answer: "+",
-          path: path,
-        },
-      });
-      sessions.delete(sessionKey);
-      return {
-        message: `${nextMessage}`,
-        done: true,
-        mode: "career_coach", // <--- nuovo flag
-      };
-    } catch (err) {
-      console.error("Errore salvataggio dati MCP:", err);
-    }
+    const conclusionText = await generateJobConclusion(userId, sessionNumber);
+    session.flow.splice(session.step, 0, { question: conclusionText });
+    sessions.set(sessionKey, session);
+    nextMessage = conclusionText;
+    conclusion = true; console.log("conclusione: ", conclusion)
   } else {
     // Normale passaggio di domanda
     nextMessage =
@@ -1090,50 +1092,55 @@ export async function chatbotLoopSimplified(
 
   let session = sessions.get(sessionKey);
 
-  // Domande aggiuntive fisse
-  const additionalQuestions = [
-    {
-      question:
-        "In che paese vorresti lavorare, scegli tra queste opzioni: italia, francia, inghilterra, germania, polonia",
-    },
-    { question: "In che città vorresti lavorare?" },
-    {
-      question:
-        "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)",
-    },
-    { question: "Hai in mente qualche azienda specifica, digita il nome?" },
-    {
-      question:
-        "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)",
-    },
+   const preQuestions = [
+    { question: "Puoi indicarmi le tue principali skills?" },
+    { question: "Quali sono i tuoi interessi principali?" },
+    { question: "Puoi raccontarmi un po' del tuo background professionale?" },
   ];
 
-  // Se nuova sessione, usa solo domande aggiuntive
+
+  const additionalQuestions = [
+    { question: "In che paese vorresti lavorare? italia, francia, inghilterra, germania, polonia" },
+    { question: "In che città vorresti lavorare?" },
+    { question: "Part time o full time?" },
+    { question: "Hai in mente qualche azienda specifica?" },
+    { question: "Quanto vorresti essere pagato (RAL/anno)?" },
+  ];
+
+  // Nuova sessione
   if (!session) {
-    session = { step: 0, answers: [], flow: additionalQuestions };
+    const flow = userInput === "__INIT__" ? [...preQuestions, ...additionalQuestions] : [...additionalQuestions];
+    session = { step: 0, answers: [], flow };
     sessions.set(sessionKey, session);
   }
 
-  // Chiamata di inizializzazione
-  if (userInput === "__INIT__") {
-    return {
-      message: session.flow[0].question,
-      done: false,
-    };
+  // Inizializzazione
+  if (userInput === "__INIT__" || userInput === "__INIT__1" ) {
+    return { message: session.flow[0].question, done: false };
   }
-// Domanda esterna
-if (isUserAskingQuestion(userInput)) {
-  const aiAnswer = await answerExternalQuestion(userInput);
 
-  console.log("Salvataggio domanda esterna su Mongo:", {
+  // Domanda esterna
+  if (isUserAskingQuestion(userInput)) {
+    const { sessionData } = await getUserData(userId, sessionNumber);
+    const aiAnswer = await answerUserQuestion(userInput, sessionData);
+    return { message: aiAnswer, done: false};
+  }
+
+ // Salvo risposta precedente in MCP
+  const prevQuestion = session.flow[session.step].question;
+
+  // Determina il tipo di domanda per il log
+  const questionType = session.step < 4 ? "ikigai" : "additional";
+
+  console.log(" Salvataggio su Mongo:", {
     id: userId,
     number_session: sessionNumber,
-    question: userInput,
-    answer: aiAnswer,
+    question: prevQuestion,
+    answer: userInput,
     step: session.step + 1,
     totalQuestions: session.flow.length,
-    questionType: "external",
-  });
+    questionType: questionType,
+  }, "conclusione: ", conclusion);
 
   try {
     await mcp.callTool({
@@ -1141,8 +1148,8 @@ if (isUserAskingQuestion(userInput)) {
       arguments: {
         id: userId,
         number_session: sessionNumber,
-        question: userInput,
-        answer: aiAnswer,
+        question: prevQuestion,
+        answer: userInput,
         path: path,
       },
     });
@@ -1150,69 +1157,76 @@ if (isUserAskingQuestion(userInput)) {
     console.error("Errore salvataggio dati MCP:", err);
   }
 
-  // Non salvare di nuovo come domanda del flow
-  return {
-    message: aiAnswer,
-    done: false,
-  };
-}
+   // Se finite tutte le domande (ikigai + aggiuntive)
+  if (conclusion) {
+    console.log("SIAMO AL CAREER COACH BABY, session stesp ", session.step)
+    sessions.delete(sessionKey);
+    return {
+       message: "Procedo a creare il piano personalizzato...",
+        done: true,
+        mode: "career_coach", // <--- nuovo flag
+      };
+  }
 
-// Se non è domanda esterna, salva la domanda del flow
-const prevQuestion = session.flow[session.step].question;
-
-console.log("Salvataggio domanda flow su Mongo:", {
-  id: userId,
-  number_session: sessionNumber,
-  question: prevQuestion,
-  answer: userInput,
-  step: session.step + 1,
-  totalQuestions: session.flow.length,
-  questionType: "additional",
-});
-
-try {
-  await mcp.callTool({
-    name: "save-session-data",
-    arguments: {
-      id: userId,
-      number_session: sessionNumber,
-      question: prevQuestion,
-      answer: userInput,
-      path: path,
-    },
-  });
-} catch (err) {
-  console.error("Errore salvataggio dati MCP:", err);
-}
-
+  session.answers.push(userInput);
 
   // Prossima domanda
-  const nextMessage =
-    session.flow[session.step]?.question ??
-    "Ottimo, hai finito le domande ora ti do la conclusione.";
+  session.step += 1;
+  sessions.set(sessionKey, session);
+
+  let nextMessage = "";
+if (session.step >= session.flow.length) {
+    // Siamo all'ultima domanda dopo ikigai, genera la conclusione con lavori
+    const conclusionText = await generateJobConclusion(userId, sessionNumber);
+    session.flow.splice(session.step, 0, { question: conclusionText });
+    sessions.set(sessionKey, session);
+    nextMessage = conclusionText;
+    conclusion = true; console.log("conclusione: ", conclusion)
+  } else {
+    // Normale passaggio di domanda
+    nextMessage =
+      session.flow[session.step]?.question ??
+      "Ottimo, hai finito le domande ora ti do la conclusione.";
+  }
+
+  console.log(
+    `Step: ${session.step}/${session.flow.length} - Tipo: ${
+      session.step <= 4 ? "ikigai" : "additional"
+    }`
+  );
 
   return {
     message: nextMessage,
-    done: false,
+    done: session.step >= session.flow.length,
   };
 }
+
+
+
+
+
 const careerPlanGenerated: Map<string, boolean> = new Map();
+let message: string;
+
 export async function careerCoachChat(
   userInput: string,
   userId: string,
   sessionNumber: string,
-  path: string
+  path: string,
+  careerCoach: boolean
 ): Promise<{ message: string }> {
   const key = `${userId}-${sessionNumber}`;
   const mcp = await getMcpClient();
+  conclusion = false; console.log("conclusione: ", conclusion)
 
   // 1. Recupera dati utente
   const { cvText, sessionData } = await getUserData(userId, sessionNumber);
 
-  let message: string;
+  
 
   // 2. Se prima volta, genero il piano
   if (!careerPlanGenerated.get(key)) {
+    
     message = await generateCareerPlan(cvText, sessionData);
     careerPlanGenerated.set(key, true);
 
@@ -1224,6 +1238,7 @@ export async function careerCoachChat(
       path: path,
     });
     // Salvataggio su sessione MCP
+    
     try {
       await mcp.callTool({
         name: "save-session-data",
@@ -1231,7 +1246,7 @@ export async function careerCoachChat(
           id: userId,
           number_session: sessionNumber,
           question: message,
-          answer: "__GENERATE_CAREER_PLAN__",
+          answer: "+",
           path: path,
         },
       });
@@ -1253,9 +1268,10 @@ export async function careerCoachChat(
       arguments: {
         id: userId,
         number_session: sessionNumber,
-        question: userInput,
-        answer: message,
+        question: message,
+        answer: userInput,
         path: path,
+        careerCoach:careerCoach,
       },
     });
     console.log("Domanda/risposta salvata su MCP:", {
