@@ -75,7 +75,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
             </div>
 
             {/* Contenitore scrollabile */}
-            <div className="flex flex-col gap-3 overflow-y-auto pb-10 max-h-[70vh] px-2">
+            <div className="flex flex-col gap-3 overflow-y-auto pb-10 max-h-[100vh] px-2">
                 {sortedSessions.map((session, index) => (
                     <Link
                         key={session.number_session}
