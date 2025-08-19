@@ -4,8 +4,9 @@ import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 // Question/Answer model
 export type QAEntry = {
   question: string;
-  answer: string;
+  answer?: string;
   timestamp: string;
+  careerCoach?: boolean;
 };
 
 // Session Data model
@@ -22,7 +23,10 @@ export async function GET(req: NextRequest) {
     const number_session = searchParams.get("sessionId");
 
     if (!id || !number_session) {
-      return NextResponse.json({ error: "Missing uid or sessionId" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing uid or sessionId" },
+        { status: 400 }
+      );
     }
     // MCP callToll
     const mcp = await getMcpClient();
@@ -33,7 +37,10 @@ export async function GET(req: NextRequest) {
 
     const content = response?.content;
     if (!Array.isArray(content) || content.length === 0) {
-      return NextResponse.json({ error: "No content returned from MCP" }, { status: 404 });
+      return NextResponse.json(
+        { error: "No content returned from MCP" },
+        { status: 404 }
+      );
     }
 
     const firstBlock = content[0];
@@ -46,19 +53,29 @@ export async function GET(req: NextRequest) {
       try {
         data = JSON.parse(firstBlock.text);
       } catch {
-        return NextResponse.json({ error: "Failed to parse MCP response" }, { status: 500 });
+        return NextResponse.json(
+          { error: "Failed to parse MCP response" },
+          { status: 500 }
+        );
       }
     } else {
-      return NextResponse.json({ error: "Invalid content type from MCP" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Invalid content type from MCP" },
+        { status: 500 }
+      );
     }
 
     if (!data.success) {
-      return NextResponse.json({ error: data.error || "Session not found", q_and_a: [] }, { status: 404 });
+      return NextResponse.json(
+        { error: data.error || "Session not found", q_and_a: [] },
+        { status: 404 }
+      );
     }
 
     const sessionData: SessionData = {
       id,
       number_session,
+      /*
       q_and_a: ((data.q_and_a ?? data.session?.q_and_a ?? []) as QAEntry[])
         .filter((entry) => entry.question && entry.answer)
         .map((entry) => ({
@@ -67,12 +84,29 @@ export async function GET(req: NextRequest) {
           timestamp: entry.timestamp
             ? new Date(entry.timestamp).toISOString()
             : new Date().toISOString(),
-        })),
+          careerCoach: entry.careerCoach ?? false, // ✅ aggiunto
+        })),*/
+      q_and_a: ((data.q_and_a ?? data.session?.q_and_a ?? []) as QAEntry[]).map(
+        (entry) => ({
+          question: entry.question,
+          answer:
+            entry.answer && entry.answer.trim() !== "+"
+              ? entry.answer
+              : undefined, // answer vuota diventa undefined
+          timestamp: entry.timestamp
+            ? new Date(entry.timestamp).toISOString()
+            : new Date().toISOString(),
+          careerCoach: entry.careerCoach ?? false,
+        })
+      ),
     };
 
     return NextResponse.json(sessionData);
   } catch (err) {
     console.error("Error fetching session data:", err);
-    return NextResponse.json({ error: "Failed to fetch session data" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch session data" },
+      { status: 500 }
+    );
   }
 }

@@ -11,6 +11,7 @@ export type Session = {
     question: string;
     answer: string;
     timestamp: string;
+    careerCoach?: boolean; // ✅ rendi opzionale
   }[];
 };
 
