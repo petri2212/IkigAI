@@ -153,10 +153,22 @@ export default function ChatPage() {
         // Carrer Coach
         if (botResponse.mode === "career_coach") {
           setStage("careerCoach");
+          const botResponse = await mockBotResponse(
+          "__INIT__",
+          uid,
+          sessionID,
+          path,
+           "careerCoach"
+        );
+        setMessages((prev) => [
+          ...prev,
+          { sender: "bot", text: botResponse.message },
+        ]);
+          /*
           setMessages((prev) => [
             ...prev,
             { sender: "bot", text: "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?" },
-          ]);
+          ]);*/
         }
       } else if (stage === "careerCoach") {
         // AI response
@@ -589,7 +601,7 @@ export default function ChatPage() {
                           setIsLoading(true);
                           try {
                             const botResponse = await mockBotResponse(
-                              "__INIT__",
+                              "__INIT__1",
                               uid,
                               sessionID,
                               path
