@@ -656,6 +656,7 @@ server.tool(
     question: z.string(),
     answer: z.string(),
     path: z.string(),
+    careerCoach: z.boolean().optional(), // 👉 parametro opzionale
   },
   {
     title: "Save Session Data (Append or Insert)",
@@ -664,7 +665,7 @@ server.tool(
     idempotentHint: false,
     openWorldHint: true,
   },
-  async ({ id, number_session, question, answer, path }) => {
+  async ({ id, number_session, question, answer, path, careerCoach }) => {
     const { MongoClient } = await import("mongodb");
 
     const mongoUri = process.env.MONGODB_URI;
@@ -680,7 +681,18 @@ server.tool(
 
       const collection = db.collection<SessionDoc>("Sessions");
       const existingDoc = await collection.findOne({ id, number_session });
-      console.log("Cosa ce in existing coso: ", existingDoc);
+      console.log("Cosa c’è in existing coso: ", existingDoc);
+
+      // Costruisco l'entry da salvare
+      const newEntry: any = {
+        question,
+        answer,
+        timestamp: new Date(),
+      };
+
+      if (typeof careerCoach === "boolean") {
+        newEntry.careerCoach = careerCoach; // 👉 lo metto dentro al Q&A
+      }
 
       if (existingDoc) {
         // Append q_and_a
@@ -688,11 +700,7 @@ server.tool(
           { id, number_session },
           {
             $push: {
-              q_and_a: {
-                question,
-                answer,
-                timestamp: new Date(),
-              } as QA,
+              q_and_a: newEntry,
             },
           }
         );
@@ -712,13 +720,7 @@ server.tool(
           number_session,
           createdAt: new Date(),
           path,
-          q_and_a: [
-            {
-              question,
-              answer,
-              timestamp: new Date(),
-            },
-          ],
+          q_and_a: [newEntry],
         };
 
         const insertResult = await collection.insertOne(newDoc);
@@ -746,7 +748,9 @@ server.tool(
     }
   }
 );
-//get session data
+
+
+// get session data
 server.tool(
   "get-session-data",
   "Retrieve session Q&A data for a specific user and session number",
@@ -794,6 +798,7 @@ server.tool(
         timestamp: entry.timestamp
           ? new Date(entry.timestamp).toISOString()
           : new Date().toISOString(),
+        careerCoach: entry.careerCoach ?? undefined, // 👉 aggiunto
       }));
 
       const sessionData: SessionData = {
@@ -819,6 +824,8 @@ server.tool(
     }
   }
 );
+
+
 
 // get all user sessions
 server.tool(
