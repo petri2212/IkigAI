@@ -442,7 +442,8 @@ export default function ChatPage() {
         </div>
 
         {/* MESSAGES AREA */}
-        <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative">
+        <div className="flex-1 overflow-y-auto px-4 pb-20 transition-all duration-300 relative
+                scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
           <div className="max-w-[60%] mx-auto space-y-4">
             {/* IF is the fist time: Welcome message*/}
             {!hasStarted ? (

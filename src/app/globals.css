@@ -36,5 +36,16 @@ html, body, #__next {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.6);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 100, 100, 0.8);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }

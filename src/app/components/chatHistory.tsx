@@ -32,7 +32,7 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
         }
     };
 
-   
+
     useImperativeHandle(ref, () => ({
         refresh: fetchSessions
     }));
@@ -73,48 +73,53 @@ const ChatHistory = forwardRef<ChatHistoryRef, HistoryProps>(({ uid, onSelectSes
             <div className="flex flex-col justify-center mt-10 text-gray-700 px-4">
                 <p className="text-lg text-gray-500">Chat History</p>
             </div>
-            {sortedSessions.map((session, index) => (
-                <Link
-                    key={session.number_session}
-                    href={{
-                        pathname: "/protected/c",
-                        query: { path: session.path, sessionId: session.number_session },
-                    }}
-                    onClick={() => {
-                        if (onSelectSession) onSelectSession(session.number_session);
-                    }}
-                    className={`flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
-                            hover:shadow-md transition-all duration-100 group
-                            ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:bg-green-50 text-green-800"}`}
-                >
-                    <div className="flex flex-col">
-                        <span
-                            className={`font-semibold duration-100 ${session.path === "simplified"
-                                ? "text-gray-800 group-hover:text-blue-800"
-                                : "text-gray-800 group-hover:text-green-700"
-                                }`}
-                        >
-                            Chat {index + 1}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                            {new Date(session.createdAt).toLocaleDateString()}
-                        </span>
-                    </div>
-                    <svg
-                        className={`w-5 h-5 ${session.path === "simplified"
-                            ? "text-gray-800 group-hover:text-blue-800"
-                            : "text-gray-800 group-hover:text-green-700"
-                            } transition-colors`}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
+
+            {/* Contenitore scrollabile */}
+            <div className="flex flex-col gap-3 overflow-y-auto pb-10 max-h-[70vh] px-2">
+                {sortedSessions.map((session, index) => (
+                    <Link
+                        key={session.number_session}
+                        href={{
+                            pathname: "/protected/c",
+                            query: { path: session.path, sessionId: session.number_session },
+                        }}
+                        onClick={() => {
+                            if (onSelectSession) onSelectSession(session.number_session);
+                        }}
+                        className={`flex items-center justify-between bg-white border border-transparent rounded-xl shadow-sm px-4 py-3 
+                hover:shadow-md transition-all duration-100 group
+                ${session.path === "simplified" ? "hover:bg-blue-50 text-blue-800" : "hover:bg-green-50 text-green-800"}`}
                     >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </Link>
-            ))}
+                        <div className="flex flex-col">
+                            <span
+                                className={`font-semibold duration-100 ${session.path === "simplified"
+                                        ? "text-gray-800 group-hover:text-blue-800"
+                                        : "text-gray-800 group-hover:text-green-700"
+                                    }`}
+                            >
+                                Chat {index + 1}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                                {new Date(session.createdAt).toLocaleDateString()}
+                            </span>
+                        </div>
+                        <svg
+                            className={`w-5 h-5 ${session.path === "simplified"
+                                    ? "text-gray-800 group-hover:text-blue-800"
+                                    : "text-gray-800 group-hover:text-green-700"
+                                } transition-colors`}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </Link>
+                ))}
+            </div>
         </div>
+
     );
 });
 
