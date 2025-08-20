@@ -17,7 +17,7 @@ const transport = new StdioClientTransport({
 let connected = false;
 
 /**
- * Singleton con connessione lazy
+ * Singleton with lazy connection
  */
 export const getMcpClient = async () => {
   if (!connected) {

@@ -1,3 +1,4 @@
+//function that call uploadPdf API in order to call use mcp.tolls through client mcp
 export const handlePdfUpload = (file: File, userId: string, session: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
