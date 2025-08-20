@@ -1,7 +1,13 @@
+import { ToolResponse } from "@/domain/toolResponse";
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
+import { parsePdfBase64 } from "@/tools/parsePdf";
 import { OpenAI } from "openai";
 
+let conclusion = false;
+const careerPlanGenerated: Map<string, boolean> = new Map();
+let message: string;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
@@ -14,7 +20,7 @@ type SessionState = {
 
 const sessions = new Map<string, SessionState>();
 
-// Rileva domanda utente
+// detects user request
 function isUserAskingQuestion(input: string): boolean {
   const trimmed = input.trim();
   if (!trimmed) return false;
@@ -32,6 +38,7 @@ function isUserAskingQuestion(input: string): boolean {
     "dove",
     "chi",
     "cosa",
+    "?",
   ];
   if (trimmed.endsWith("?")) return true;
   const lower = trimmed.toLowerCase();
@@ -40,45 +47,53 @@ function isUserAskingQuestion(input: string): boolean {
   }
   return false;
 }
-/*Ikigai (生き甲斐) è un termine giapponese che si traduce approssimativamente come "ragione di essere" o "scopo della vita". Non ha una traduzione diretta in italiano, ma racchiude il concetto di trovare gioia e significato nella vita, qualcosa che motiva ad alzarsi ogni mattina. È la combinazione di ciò che ami, ciò in cui sei bravo, ciò di cui il mondo ha bisogno e ciò per cui puoi essere pagato.
 
-Ecco i punti chiave dell'ikigai:
+/*Ikigai (生き甲斐) is a Japanese term that roughly translates as “reason for being” or “purpose in life.” It has no direct translation in English, but it encompasses the concept of finding joy and meaning in life, something that motivates you to get up every morning. It is the combination of what you love, what you are good at, what the world needs, and what you can be paid for.
 
-Passione: Ciò che ami fare, che ti appassiona e ti motiva.
-Missione: Ciò che serve al mondo, il tuo contributo alla società.
-Vocazione: Ciò in cui sei bravo, le tue capacità e talenti.
-Professione: Ciò per cui puoi essere pagato, la tua attività lavorativa.
+Here are the key points of ikigai:
 
-GENERA ESATTAMENTE 12 DOMANDE, una per riga:
-- 4 domande sulla PASSIONE
-- 4 domande sulla MISSIONE  
-- 4 domande sulla VOCAZIONE
-- 4 domande sulla PROFESSIONE
+Passion: What you love to do, what you are passionate about and what motivates you.
+Mission: What the world needs, your contribution to society.
+Vocation: What you are good at, your skills and talents.
+Profession: What you can be paid for, your job.
 
-Le domande devono essere medio-brevi, chiare e in italiano, adatte anche a ragazzi che non sanno cosa fare della loro vita.
+GENERATE EXACTLY 12 QUESTIONS, one per line:
+- 4 questions about PASSION
+- 4 questions about MISSION
+- 4 questions about VOCATION
+- 4 questions about PROFESSION
 
-FORMATO RICHIESTO:
-Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senza separatori. Solo le domande pure.*/
+The questions should be medium-short, clear, and in English, suitable for young people who don't know what to do with their lives.
+
+REQUIRED FORMAT:
+Write each question on a separate line, without numbers, bullet points, or separators. Just the questions themselves.*/
 
 // Genera 4 domande dall'AI su argomenti dati
 async function generateQuestions(
   topics: string[]
 ): Promise<{ question: string }[]> {
-  const prompt = `Ikigai (生き甲斐) è un termine giapponese che si traduce approssimativamente come "ragione di essere" o "scopo della vita". Non ha una traduzione diretta in italiano, ma racchiude il concetto di trovare gioia e significato nella vita, qualcosa che motiva ad alzarsi ogni mattina. È la combinazione di ciò che ami, ciò in cui sei bravo, ciò di cui il mondo ha bisogno e ciò per cui puoi essere pagato.
+  const prompt = `Ikigai (生き甲斐) is a Japanese term that roughly translates as “reason for being” or “purpose in life.” 
+  It has no direct translation in English, but it encompasses the concept of finding joy and meaning in life, 
+  something that motivates you to get up every morning. It is the combination of what you love, what you are good at,
+  what the world needs, and what you can be paid for.
 
-Ecco i punti chiave dell'ikigai:
+Here are the key points of ikigai:
 
-Passione: Ciò che ami fare, che ti appassiona e ti motiva.
-Missione: Ciò che serve al mondo, il tuo contributo alla società.
-Vocazione: Ciò in cui sei bravo, le tue capacità e talenti.
-Professione: Ciò per cui puoi essere pagato, la tua attività lavorativa.
+Passion: What you love to do, what you are passionate about and what motivates you.
+Mission: What the world needs, your contribution to society.
+Vocation: What you are good at, your skills and talents.
+Profession: What you can be paid for, your job.
 
-GENERA ESATTAMENTE 4 DOMANDE, una per riga, una su goni argomento dell'ikigai
+GENERATE EXACTLY 12 QUESTIONS, one per line:
+- 4 questions about PASSION
+- 4 questions about MISSION
+- 4 questions about VOCATION
+- 4 questions about PROFESSION
 
-Le domande devono essere medio-brevi, chiare e in italiano, adatte anche a ragazzi che non sanno cosa fare della loro vita.
+The questions should be medium-short, clear, and in English, suitable for young people who don't know what to do with their lives.
 
-FORMATO RICHIESTO:
-Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senza separatori. Solo le domande pure.`;
+REQUIRED FORMAT:
+Write each question on a separate line, without numbers, bullet points, or separators. Just the questions themselves.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
@@ -86,49 +101,49 @@ Scrivi ogni domanda su una riga separata, senza numeri, senza punti elenco, senz
       {
         role: "system",
         content:
-          "Sei un assistente che genera esattamente 12 domande, una per riga, senza numerazione.",
+          "You are an assistant who generates exactly 12 questions, one per line, without numbering.",
       },
       { role: "user", content: prompt },
     ],
-    max_tokens: 800, // aumentato ancora di più
-    temperature: 0.5, // ridotta per più coerenza
+    max_tokens: 800, 
+    temperature: 0.5, // reducted for more coherence
   });
 
   const text = completion.choices[0].message.content ?? "";
 
   // DEBUG: Stampa il testo grezzo
-  console.log("🔍 Testo grezzo dall'AI:", text);
-  console.log("🔍 Righe totali:", text.split("\n").length);
+  //console.log("🔍 Testo grezzo dall'AI:", text);
+  //console.log("🔍 Righe totali:", text.split("\n").length);
 
   const questions = text
     .split("\n")
     .map((q) => q.trim())
-    .filter((q) => q.length > 5) // filtro più permissivo
-    .filter((q) => !/^[-–—\s]*$/.test(q)) // elimina linee vuote o di soli trattini
-    .filter((q) => !q.toLowerCase().includes("passione") || q.includes("?")) // elimina intestazioni
+    .filter((q) => q.length > 5) 
+    .filter((q) => !/^[-–—\s]*$/.test(q)) // eliminate empty strings or with only dashes
+    .filter((q) => !q.toLowerCase().includes("passione") || q.includes("?")) // remove headers
     .filter((q) => !q.toLowerCase().includes("missione") || q.includes("?"))
     .filter((q) => !q.toLowerCase().includes("vocazione") || q.includes("?"))
     .filter((q) => !q.toLowerCase().includes("professione") || q.includes("?"))
-    .map((q) => q.replace(/^[-•\d.\s]+/, "")) // rimuove bullet/numero iniziale
+    .map((q) => q.replace(/^[-•\d.\s]+/, "")) // removes bullet/initial number
     .map((q) => q.trim())
     .filter((q) => q.length > 0)
-    .slice(0, 12) // prendi massimo 12
+    .slice(0, 12) // take a maximum of 12
     .map((q) => ({ question: q }));
 
-  console.log(" Domande finali parsate:", questions.length);
-  console.log(" Domande parsate:", questions);
+ // console.log(" Domande finali parsate:", questions.length);
+   console.log(" Questions parsed:", questions);
 
   return questions;
 }
 
-// Risponde a domande esterne con AI
+// Responds to external questions with AI (deprecated)
 async function answerExternalQuestion(question: string): Promise<string> {
-  const prompt = `Sei un assistente virtuale esperto. Rispondi in modo semplice e completo alla domanda:\n${question}`;
+  const prompt = `You are an experienced virtual assistant. Answer the question simply and comprehensively:\n${question}`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
     messages: [
-      { role: "system", content: "Sei un assistente virtuale esperto." },
+      { role: "system", content: "You are an experienced virtual assistant." },
       { role: "user", content: prompt },
     ],
     max_tokens: 100,
@@ -137,60 +152,11 @@ async function answerExternalQuestion(question: string): Promise<string> {
 
   return (
     completion.choices?.[0]?.message?.content?.trim() ??
-    "Non so come rispondere a questa domanda."
+    "I don't know how to answer to this question."
   );
 }
 
-interface ToolResponse {
-  content: { type: string; text: string }[];
-}
-
-export async function parsePdfBase64(cvBase64: string): Promise<string> {
-  try {
-    const PDFParser = (await import("pdf2json")).default;
-
-    return new Promise<string>((resolve, reject) => {
-      const pdfParser = new (PDFParser as any)();
-
-      pdfParser.on("pdfParser_dataError", (errData: any) => {
-        console.error("Errore parse PDF:", errData);
-        resolve("");
-      });
-
-      pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
-        try {
-          let text = "";
-          if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
-            pdfData.Pages.forEach((page: any) => {
-              if (page.Texts && Array.isArray(page.Texts)) {
-                page.Texts.forEach((textItem: any) => {
-                  if (textItem.R && Array.isArray(textItem.R)) {
-                    textItem.R.forEach((textRun: any) => {
-                      if (textRun.T) {
-                        text += decodeURIComponent(textRun.T) + " ";
-                      }
-                    });
-                  }
-                });
-              }
-            });
-          }
-          resolve(text.slice(0, 3000));
-        } catch (err) {
-          console.error("Errore estrazione testo:", err);
-          resolve("");
-        }
-      });
-
-      const buffer = Buffer.from(cvBase64, "base64");
-      pdfParser.parseBuffer(buffer);
-    });
-  } catch (err) {
-    console.error("Errore parse PDF:", err);
-    return "";
-  }
-}
-
+//job suggestion with CV and session information
 async function getJobSuggestion(
   userId: string,
   sessionNumber: string
@@ -210,13 +176,13 @@ async function getJobSuggestion(
     if (cvResponse.content?.[0]?.text) {
       cvBase64 = cvResponse.content[0].text;
     } else {
-      console.warn(`CV non trovato per utente ${userId}`);
+      console.warn(`CV dont found for user ${userId}`);
     }
   } catch (err) {
-    console.error("Errore recupero CV MCP:", err);
+    console.error("Error retrieve CV MCP:", err);
   }
 
-  // Recupero sessione
+  // recovery session
   try {
     const sessionResponse = (await mcp.callTool({
       name: "get-session-data",
@@ -227,18 +193,20 @@ async function getJobSuggestion(
       sessionData = sessionResponse.content[0].text;
     } else {
       console.warn(
-        `Sessione ${sessionNumber} non trovata per utente ${userId}`
+        `Session ${sessionNumber} not found for user ${userId}`
       );
     }
   } catch (err) {
-    console.error("Errore recupero sessione MCP:", err);
+    console.error("Error recovery session MCP:", err);
   }
+  /*
   console.log(
     "DEBUG - tipo cvBase64:",
     typeof cvBase64,
     cvBase64?.substring(0, 100)
   );
-  /*
+
+  
 console.log("DEBUG - CV Base64:", cvBase64?.substring(0, 100) + "..."); // Mostra solo i primi 100 caratteri
 console.log("DEBUG - Session Data:", sessionData);
 /*
@@ -247,41 +215,43 @@ CV recuperato: ${cvBase64 ? "✅" : "❌"}
 Sessione recuperata: ${sessionData ? "✅" : "❌"}
 
 CHE LAVORO SCEGLI`;*/
-  // Decodifica PDF in testo
+
+
+  // Decode PDF in Text
   let cvText = "";
   if (cvBase64 && cvBase64.startsWith("JVBER")) {
-    // I PDF Base64 tipicamente iniziano con "JVBER"
+    // The PDF Base64 typically begin with "JVBER"
     try {
       cvText = await parsePdfBase64(cvBase64);
       if (!cvText || cvText.trim().length === 0) {
-        cvText = "CV non leggibile";
+        cvText = "CV not readable";
       }
     } catch (err) {
-      console.error("Errore decodifica CV:", err);
-      cvText = "Errore nella lettura del CV";
+      console.error("Error decode CV:", err);
+      cvText = "Error in reading CV";
     }
   } else {
-    console.warn("CV Base64 non valido o mancante, salto parsing PDF.");
-    cvText = cvBase64 ? "CV non in formato PDF" : "CV non inserito";
+    console.warn("CV Base64 non valid or absent, skip parsing PDF.");
+    cvText = cvBase64 ? "CV in PDF format" : "CV not inserted";
   }
   /*
 console.log("DEBUG - CV Base64:", cvText?.substring(0, 100) + "..."); // Mostra solo i primi 100 caratteri
 console.log("DEBUG - Session Data:", sessionData);
 */
   if (!cvText && !sessionData) {
-    return "Non ci sono dati sufficienti per generare suggerimenti di lavoro.";
+    return "There is insufficient data to generate job suggestions.";
   }
 
-  // Prompt per l'AI
+  // Prompt for AI
   const prompt = `
-Hai a disposizione il CV dell'utente (testo) e i dati della sessione.
-Analizza attentamente il CV e la sessione per capire competenze, esperienze, passioni e personalità.
+You have access to the user's CV (text) and session data.
+Carefully analyze the CV and session to understand skills, experience, passions, and personality.
 
-Obiettivo: suggerire 3 lavori più pertinenti possibile al CV, e 3 lavoro aggiuntivo basato sulla personalità della sessione.
+Objective: suggest 3 jobs that are as relevant as possible to the CV, and 3 additional jobs based on the personality of the session.
 
-Restituisci solo i lavori, uno per riga, senza spiegazioni:
-CV: ${cvText || "Non disponibile"}
-Sessione: ${sessionData || "Non disponibile"}
+Return only the jobs, one per line, without explanations:
+CV: ${cvText || "Not available "}
+Session: ${sessionData || "Not available"}
 `;
 
   const completion = await openai.chat.completions.create({
@@ -289,7 +259,7 @@ Sessione: ${sessionData || "Non disponibile"}
     messages: [
       {
         role: "system",
-        content: "Sei un assistente esperto nel career coaching.",
+        content: "You are an experienced career coaching assistant..",
       },
       { role: "user", content: prompt },
     ],
@@ -299,307 +269,10 @@ Sessione: ${sessionData || "Non disponibile"}
 
   const jobsText = completion.choices[0].message.content ?? "";
 
-  return `Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:\n\n${jobsText} \n\n Scegline uno, oppure chiedi maggiori informazioni`;
+  return `Perfect! Here are the job suggestions based on your CV and session:\n\n${jobsText} \n\n\n\n Choose one, or request more information about a specific job.`;
 }
-/*
-async function generateJobConclusion(
-  userId: string,
-  sessionNumber: string
-): /*Promise<string> {
-  const mcp = await getMcpClient();
-  try {
-    // Recupera i dati della sessione
-    const sessionResponse = (await mcp.callTool({
-      name: "get-session-data",
-      arguments: { id: userId, number_session: sessionNumber },
-    })) as ToolResponse;
-    console.log("session number", sessionNumber )
-     console.log("userId", userId )
-    if (!sessionResponse.content?.[0]?.text) {
-      return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
-    }
 
-    //const sessionData = JSON.parse(sessionResponse.content[0].text);
-    const rawText = sessionResponse.content[0].text;
-
-    // Regex per estrarre Q&A
-    const matches = [
-      ...rawText.matchAll(/Q: (.+?)\n\s*A: (.+?)(?=\n\d+\. Q:|\n*$)/gs),
-    ];
-
-    const sessionData = {
-      responses: matches.map(([_, question, answer]) => ({ question, answer })),
-    };
-    /*
-     { question: "In che città vorresti lavorare?" },
-    { question: "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)" },
-    { question: "Hai in mente qualche azienda specifica, digita il nome?" },
-    { question: "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)" },
-    // Estrai le risposte alle ultime 5 domande
-    const jobQuestions = [
-      "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
-      "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
-      "In che città vorresti lavorare?",
-      "Vorresti un lavoro part time o full time?",
-      "Hai in mente qualche azienda specifica, digita il nome?",
-      "Quanto vorresti essere pagato?",
-    ];
-
-    const jobAnswers = jobQuestions.map((question) => {
-      const found = sessionData.responses?.find((r: any) =>
-        r.question?.includes(question.substring(0, 20))
-      );
-      return found?.answer || "Non specificato";
-    });
-
-    const [skills, paese, citta, tipoContratto, azienda, stipendio] =
-      jobAnswers;
-
-    // Funzione helper per normalizzare le risposte "vuote"
-    function normalizeAnswer(answer: string) {
-      const emptyValues = ["non specificato", "non lo so", "no", "nessuna", ""];
-      return emptyValues.includes(answer.trim().toLowerCase()) ? "" : answer;
-    }
-    /*
-console.log("DEBUG paese:", paese);
-console.log("DEBUG normalizeAnswer(paese):", normalizeAnswer(paese));
-console.log("DEBUG key usata per countryMap:", normalizeAnswer(paese).toLowerCase());
-
-    
-    // Mappa il paese
-    const countryMap: { [key: string]: string } = {
-      italia: "it",
-      italy: "it",
-      francia: "fr",
-      france: "fr",
-      inghilterra: "gb",
-      england: "gb",
-      germania: "de",
-      germany: "de",
-      polonia: "pl",
-      poland: "pl",
-    };
-    /*
-console.log("countryMap keys:", Object.keys(countryMap));
-console.log("checking france:", countryMap["france"]);
-
-    const normalizedPaese = normalizeAnswer(paese).toLowerCase().trim();
-    const countryCode = countryMap[normalizedPaese] ?? "it";
-    /*
-console.log("DEBUG normalizedPaese:", normalizedPaese);
-console.log("DEBUG countryCode:", countryCode);
-
-    // Normalizza gli altri campi
-
-    const locationArg = normalizeAnswer(citta);
-    const jobTypeArg = normalizeAnswer(tipoContratto);
-    const companyArg = normalizeAnswer(azienda);
-    const salaryArg = normalizeAnswer(stipendio);
-    const skillsArg = normalizeAnswer(skills);
-
-console.log("DEBUG SKILLS:", skills);   
-console.log("DEBUG countryCode:", countryCode);
-console.log("DEBUG locationArg:", locationArg);
-console.log("DEBUG jobTypeArg:", jobTypeArg);
-console.log("DEBUG companyArg:", companyArg);
-console.log("DEBUG salaryArg:", salaryArg);
-
-    // Chiama il tool MCP
-    const jobsResponse = (await mcp.callTool({
-      name: "search-jobs",
-      arguments: {
-        country: countryCode,
-        location: locationArg,
-        jobType: jobTypeArg,
-        company: companyArg,
-        salary: salaryArg,
-        skills: skillsArg, // Puoi renderlo dinamico
-      },
-    })) as ToolResponse;
-
-    if (!jobsResponse.content?.[0]?.text) {
-      return "Non sono riuscito a trovare lavori corrispondenti ai tuoi criteri.";
-    }
-
-    const responseText = jobsResponse.content?.[0]?.text || "";
-    let jobs = [];
-    try {
-      // rimuovi la riga DEBUG se vuoi fare JSON.parse
-      jobs = JSON.parse(responseText.replace(/^DEBUG URL:.*\n/, ""));
-      console.log("DIO NELLO L'API: ", responseText);
-    } catch (err) {
-      //return `Errore parsing jobs.\nDEBUG RAW RESPONSE: ${responseText}`;
-      console.log("DIO NELLO L'API: ", responseText);
-    }
-    Promise<string> {
-  const mcp = await getMcpClient();
-  try {
-    // Recupera i dati della sessione
-    const sessionResponse = (await mcp.callTool({
-      name: "get-session-data",
-      arguments: { id: userId, number_session: sessionNumber },
-    })) as ToolResponse;
-
-    console.log("session number", sessionNumber);
-    console.log("userId", userId);
-
-    if (!sessionResponse.content?.[0]?.text) {
-      return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
-    }
-
-    // Parse JSON del primo tool
-    const sessionDataRaw = JSON.parse(sessionResponse.content[0].text);
-
-    if (!sessionDataRaw.success) {
-      return `Errore: ${sessionDataRaw.error}`;
-    }
-
-    const responses = sessionDataRaw.session.q_and_a.map((entry: any) => ({
-      question: entry.question,
-      answer: entry.answer,
-    }));
-
-    // Domande da estrarre
-    const jobQuestions = [
-      "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
-      "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
-      "In che città vorresti lavorare?",
-      "Vorresti un lavoro part time o full time?",
-      "Hai in mente qualche azienda specifica, digita il nome?",
-      "Quanto vorresti essere pagato?",
-    ];
-
-    const jobAnswers = jobQuestions.map((question) => {
-      const found = responses.find((r: any) =>
-        r.question.includes(question.substring(0, 20))
-      );
-      return found?.answer || "Non specificato";
-    });
-
-    const [skills, paese, citta, tipoContratto, azienda, stipendio] =
-      jobAnswers;
-
-    // Funzione helper per normalizzare le risposte "vuote"
-    function normalizeAnswer(answer: string) {
-      const emptyValues = ["non specificato", "non lo so", "no", "nessuna", ""];
-      return emptyValues.includes(answer.trim().toLowerCase()) ? "" : answer;
-    }
-
-    // Mappa il paese
-    const countryMap: { [key: string]: string } = {
-      italia: "it",
-      italy: "it",
-      francia: "fr",
-      france: "fr",
-      inghilterra: "gb",
-      england: "gb",
-      germania: "de",
-      germany: "de",
-      polonia: "pl",
-      poland: "pl",
-    };
-
-    const normalizedPaese = normalizeAnswer(paese).toLowerCase().trim();
-    const countryCode = countryMap[normalizedPaese] ?? "it";
-
-    // Normalizza gli altri campi
-    const locationArg = normalizeAnswer(citta);
-    const jobTypeArg = normalizeAnswer(tipoContratto);
-    const companyArg = normalizeAnswer(azienda);
-    const salaryArg = normalizeAnswer(stipendio);
-    const skillsArg = normalizeAnswer(skills);
-
-    console.log("DEBUG SKILLS:", skillsArg);
-    console.log("DEBUG countryCode:", countryCode);
-    console.log("DEBUG locationArg:", locationArg);
-    console.log("DEBUG jobTypeArg:", jobTypeArg);
-    console.log("DEBUG companyArg:", companyArg);
-    console.log("DEBUG salaryArg:", salaryArg);
-
-    // Chiama il tool MCP
-    const jobsResponse = (await mcp.callTool({
-      name: "search-jobs",
-      arguments: {
-        country: countryCode,
-        location: locationArg,
-        jobType: jobTypeArg,
-        company: companyArg,
-        salary: salaryArg,
-        skills: skillsArg,
-      },
-    })) as ToolResponse;
-
-    if (!jobsResponse.content?.[0]?.text) {
-      return "Non sono riuscito a trovare lavori corrispondenti ai tuoi criteri.";
-    }
-
-    const responseText = jobsResponse.content?.[0]?.text || "";
-    let jobs = [];
-    try {
-      jobs = JSON.parse(responseText.replace(/^DEBUG URL:.*\n/, ""));
-      console.log("DEBUG JOBS API: ", responseText);
-    } catch (err) {
-      console.log("DEBUG RAW JOBS RESPONSE: ", responseText);
-    }
-
-    // Puoi restituire una sintesi o il JSON
-    return JSON.stringify(jobs, null, 2);
-
-  } catch (err) {
-    console.error("Errore nel recupero sessione:", err);
-    return "Errore durante la generazione della conclusione lavori.";
-  }
-
-    // Genera la conclusione con AI
-    const prompt = `
-Sei un career coach esperto. Basandoti sui seguenti dati:
-
-PREFERENZE UTENTE:
-- Paese: ${paese}
-- Città: ${citta}  
-- Tipo contratto: ${tipoContratto}
-- Azienda preferita: ${azienda}
-- Stipendio desiderato: ${stipendio}
-
-LAVORI TROVATI:
-${jobs.map((j: { title: any; company: any; location: any; contract_type: any; salary_min: any; salary_max: any; description: any; url: any; }) => 
-  `Titolo: ${j.title}
-Azienda: ${j.company}
-Luogo: ${j.location}
-Contratto: ${j.contract_type}
-Stipendio: ${j.salary_min} - ${j.salary_max}
-Descrizione: ${j.description}
-URL: ${j.url}`
-).join("\n\n")} \n\n
-
-Scrivi una conclusione professionale che:
-1. Riassuma le preferenze dell'utente
-2. Presenti i lavori trovati in modo accattivante
-3. Dia consigli pratici per candidarsi
-4. Motivi l'utente nel percorso professionale
-
-Mantieni un tono professionale ma amichevole. Limita a 400 parole.
-`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: "Sei un career coach esperto." },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 600,
-      temperature: 0.7,
-    });
-
-    return (
-      completion.choices?.[0]?.message?.content?.trim() ??
-      "Congratulazioni per aver completato il percorso Ikigai!"
-    );
-  } catch (err) {
-    console.error("Errore generazione conclusione lavori:", err);
-    return "Si è verificato un errore durante la ricerca dei lavori.";
-  }
-}*/
+// Find a profession through session information if the user don't upload CV
 async function inferSkillsFromCV(
   userId: string,
   sessionNumber: string
@@ -607,7 +280,7 @@ async function inferSkillsFromCV(
   const mcp = await getMcpClient();
   let cvBase64 = "";
 
-  // Recupero CV
+  // Retrieve CV
   try {
     const cvResponse = (await mcp.callTool({
       name: "get-pdf-from-mongo",
@@ -617,15 +290,15 @@ async function inferSkillsFromCV(
     if (cvResponse.content?.[0]?.text) {
       cvBase64 = cvResponse.content[0].text;
     } else {
-      console.warn(`CV non trovato per utente ${userId}`);
+      console.warn(`CV absent for user ${userId}`);
       return null;
     }
   } catch (err) {
-    console.error("Errore recupero CV MCP:", err);
+    console.error("Error retrieve CV MCP:", err);
     return null;
   }
 
-  // Se CV disponibile, chiediamo all'AI di suggerire una professione/skill
+  // If CV is available we request to mcp tool to give us a profession
   try {
     const aiResponse = (await mcp.callTool({
       name: "analyze-cv-for-skill",
@@ -637,21 +310,23 @@ async function inferSkillsFromCV(
     if (aiResponse.content?.[0]?.text) {
       return aiResponse.content[0].text.trim();
     } else {
-      console.warn(`AI non ha suggerito skill per utente ${userId}`);
+      console.warn(`AI did not suggest any skills for users. ${userId}`);
       return null;
     }
   } catch (err) {
-    console.error("Errore analisi CV con AI:", err);
+    console.error("CV analysis error with AI:", err);
     return null;
   }
 }
+
+//generate Jobconclusion
 async function generateJobConclusion(
   userId: string,
   sessionNumber: string
 ): Promise<string> {
   const mcp = await getMcpClient();
   try {
-    // Recupera i dati della sessione
+    // Retrieve session data
     const sessionResponse = (await mcp.callTool({
       name: "get-session-data",
       arguments: { id: userId, number_session: sessionNumber },
@@ -661,49 +336,53 @@ async function generateJobConclusion(
     console.log("userId", userId);
 
     if (!sessionResponse.content?.[0]?.text) {
-      return "Non sono riuscito a recuperare i dati della sessione per la ricerca lavori.";
+      return "I was unable to retrieve the session data for the job search.";
     }
 
-    // Parsing JSON della sessione
+    // Parsing JSON of session
     const sessionDataRaw = JSON.parse(sessionResponse.content[0].text);
     const responses = sessionDataRaw.session.q_and_a.map((entry: any) => ({
       question: entry.question,
       answer: entry.answer,
     }));
 
-    // Domande di interesse per lavori
+    // Questions of interest for jobs
     const jobQuestions = [
-      "Perfetto! Ecco i suggerimenti di lavoro basati sul tuo CV e sulla sessione:",
-      "In che paese vorresti lavorare, scegli tra queste opzioni: italia, france, inghilterra, germania, polonia",
-      "In che città vorresti lavorare?",
-      "Vorresti un lavoro part time o full time?",
-      "Hai in mente qualche azienda specifica, digita il nome?",
-      "Quanto vorresti essere pagato?",
+      "Perfect! Here are some job suggestions based on your CV and session: ",
+      "In which country would you like to work? Choose from these options: Italy, France, England, Germany, Poland ",
+      "In which city would you like to work? ",
+      "Would you like a part-time or full-time job? ",
+      "Do you have a specific company in mind? Enter the name. ",
+      "How much would you like to be paid? ",
     ];
 
     const jobAnswers = jobQuestions.map((question) => {
       const found = responses.find((r: any) =>
         r.question.includes(question.substring(0, 20))
       );
-      return found?.answer || "Non specificato";
+      return found?.answer || "";
     });
 
     const [skills, paese, citta, tipoContratto, azienda, stipendio] =
       jobAnswers;
 
-    // Helper per normalizzare risposte vuote
+    //Helper for normalizing empty responses
     const normalizeAnswer = (answer: string) => {
-      const emptyValues = ["non specificato", "non lo so", "no", "nessuna", ""];
+      const emptyValues = ["n","non specificato", "non lo so", "no", "nessuna", "", "idk", "i don't know", "nothing", "i don't have preferencies"];
       return emptyValues.includes(answer.trim().toLowerCase()) ? "" : answer;
     };
 
-    // Mapping paesi
+    // Mapping countries
     const countryMap: { [key: string]: string } = {
       italia: "it",
       italy: "it",
       francia: "fr",
       france: "fr",
       inghilterra: "gb",
+      gb:"gb",
+      de:"de",
+      pl:"pl",
+      it:"it",
       england: "gb",
       germania: "de",
       germany: "de",
@@ -731,13 +410,13 @@ async function generateJobConclusion(
       const inferredSkill = await inferSkillsFromCV(userId, sessionNumber);
       if (inferredSkill) {
         skillsArg = inferredSkill;
-        console.log(`Skills inferite dal CV: ${skillsArg}`);
+        console.log(`Skills inferred from CV: ${skillsArg}`);
       } else {
-        console.warn("Nessuna skill inferita dal CV, skillsArg rimane vuoto");
+        console.warn("No skills inferred from CV, skillsArg remains empty");
       }
     }
 
-    // Chiamata tool MCP per ricerca lavori
+    // Call tool MCP for search Job
     const jobsResponse = (await mcp.callTool({
       name: "search-jobs",
       arguments: {
@@ -751,7 +430,7 @@ async function generateJobConclusion(
     })) as ToolResponse;
 
     if (!jobsResponse.content?.[0]?.text) {
-      return "Non sono riuscito a trovare lavori corrispondenti ai tuoi criteri.";
+      return "I couldn't find any jobs matching your criteria.";
     }
 
     const responseText = jobsResponse.content?.[0]?.text || "";
@@ -763,43 +442,44 @@ async function generateJobConclusion(
       console.log("DEBUG RAW JOBS RESPONSE:", responseText);
     }
 
-    // Generazione conclusione con AI
+    // Generation conclusion with AI
     const prompt = `
-Sei un career coach esperto. Basandoti sui seguenti dati:
+You are an experienced career coach. Based on the following data:
 
-PREFERENZE UTENTE:
-- Paese: ${paese}
-- Città: ${citta}  
-- Tipo contratto: ${tipoContratto}
-- Azienda preferita: ${azienda}
-- Stipendio desiderato: ${stipendio}
+USER PREFERENCES:
+- Country: ${paese}
+- City: ${citta}  
+- Contract type: ${tipoContratto}
+- Preferred company: ${azienda}
+- Desired salary: ${stipendio}
 
-LAVORI TROVATI:
+JOBS FOUND:
 ${jobs
   .map(
-    (j) => `Titolo: ${j.title}
-Azienda: ${j.company}
-Luogo: ${j.location}
-Contratto: ${j.contract_type}
-Stipendio: ${j.salary_min} - ${j.salary_max}
-Descrizione: ${j.description}
+    (j) => `Title: ${j.title}
+Company: ${j.company}
+Location: ${j.location}
+Contract: ${j.contract_type}
+Salary: ${j.salary_min} - ${j.salary_max}
+Description: ${j.description}
 URL: ${j.url}`
   )
   .join("\n\n")}
 
-Scrivi una conclusione professionale che:
-1. Riassuma le preferenze dell'utente
-2. Presenti i lavori trovati in modo accattivante
-3. Dia consigli pratici per candidarsi
-4. Motivi l'utente nel percorso professionale
+Write a professional conclusion that:
+1. Summarizes the user's preferences
+2. Presents the jobs found in an appealing way
+3. Gives practical advice for applying
+Put the most important information in bold.
 
-Mantieni un tono professionale ma amichevole. Limita a 500 parole(quindi nel caso riassumi) come ultima frase del messaggio chiedigli "OK, vuoi che ti faccia un piano personalizzato affinchè tu possa arrivare ai tuoi obiettivi?".
+
+Keep the tone professional but friendly. Limit it to 500 words (so summarize if necessary). As the last sentence of the message, ask them, “OK, would you like me to create a personalized plan for you to achieve your goals?”".
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
-        { role: "system", content: "Sei un career coach esperto." },
+        { role: "system", content: "You are an experienced career coach." },
         { role: "user", content: prompt },
       ],
       max_tokens: 600,
@@ -808,13 +488,15 @@ Mantieni un tono professionale ma amichevole. Limita a 500 parole(quindi nel cas
 
     return (
       completion.choices?.[0]?.message?.content?.trim() ??
-      "Congratulazioni per aver completato il percorso Ikigai!"
+      "Congratulations on completing the Ikigai journey!"
     );
   } catch (err) {
     console.error("Errore generazione conclusione lavori:", err);
-    return "Si è verificato un errore durante la ricerca dei lavori.";
+    return "An error occurred while searching for jobs.";
   }
 }
+
+// Retrieve user DATA
 async function getUserData(
   userId: string,
   sessionNumber: string
@@ -823,7 +505,7 @@ async function getUserData(
   let cvBase64: string | undefined;
   let sessionData: string = "";
 
-  // Recupero CV
+  // retrieve CV
   try {
     const cvResponse = (await mcp.callTool({
       name: "get-pdf-from-mongo",
@@ -831,10 +513,10 @@ async function getUserData(
     })) as ToolResponse;
     cvBase64 = cvResponse.content?.[0]?.text;
   } catch (err) {
-    console.error("Errore recupero CV MCP:", err);
+    console.error("Error retrieve CV MCP:", err);
   }
 
-  // Recupero sessione
+  // Retrieve session
   try {
     const sessionResponse = (await mcp.callTool({
       name: "get-session-data",
@@ -842,73 +524,78 @@ async function getUserData(
     })) as ToolResponse;
     sessionData = sessionResponse.content?.[0]?.text ?? "";
   } catch (err) {
-    console.error("Errore recupero sessione MCP:", err);
+    console.error("Errore retrieve session MCP:", err);
   }
 
-  // Decodifica PDF
+  // decoding PDF
   let cvText = "";
   if (cvBase64 && cvBase64.startsWith("JVBER")) {
     try {
       cvText = await parsePdfBase64(cvBase64);
-      if (!cvText || cvText.trim().length === 0) cvText = "CV non leggibile";
+      if (!cvText || cvText.trim().length === 0) cvText = "CV not readable";
     } catch (err) {
-      console.error("Errore decodifica CV:", err);
-      cvText = "Errore nella lettura del CV";
+      console.error("Error Decod CV:", err);
+      cvText = "Error reading CV";
     }
   } else {
-    cvText = cvBase64 ? "CV non in formato PDF" : "CV non inserito";
+    cvText = cvBase64 ? "CV not in PDF format" : "CV not entered";
   }
 
   return { cvText, sessionData };
 }
+
+// Generate Career Plan
 async function generateCareerPlan(
   cvText: string,
   sessionData: string
 ): Promise<string> {
   const prompt = `
-Sei un Career Coach virtuale esperto.
-Hai a disposizione il CV e i dati della sessione dell'utente.
-Analizza attentamente e stila un piano personalizzato per raggiungere gli obiettivi dell'utente.
-Rispondi in modo chiaro, pratico e dettagliato.
+You are an experienced virtual career coach.
+You have access to the user's CV and session data.
+Carefully analyze and draw up a personalized plan to achieve the user's goals.
+Respond in a clear, practical, and detailed manner. (The entire text must be less than 1000 words.)
+Put the most important information in bold. 
 
-CV: ${cvText || "Non disponibile"}
-Sessione: ${sessionData || "Non disponibile"}
+CV: ${cvText || "Not available"}
+Session: ${sessionData || "Not available"}
   `;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "system", content: "You are an experienced virtual career coach." },
       { role: "user", content: prompt },
     ],
-    max_tokens: 800,
+    max_tokens: 1000,
     temperature: 0.6,
   });
 
   return (
     completion.choices?.[0]?.message?.content?.trim() ??
-    "Non sono riuscito a generare un piano."
+    "I was unable to generate a plan."
   );
 }
+
+// answer user question 
 async function answerUserQuestion(
   userInput: string,
   sessionData: string
 ): Promise<string> {
   const prompt = `
-Sei un Career Coach virtuale esperto.
-Hai a disposizione i dati della sessione dell'utente.
-Rispondi alla seguente domanda in modo chiaro e pratico:
+You are an experienced virtual career coach.
+You have access to the user's session data.
+Answer the following question clearly and practically:
 
-Domanda: ${userInput}
+Question: ${userInput}
 
-Sessione: ${sessionData || "Non disponibile"}
-Se la domanda è un ringraziamento o qualcosa del genere ringrazia, e poi chiedi se ha bisogno di altro
+Session: ${sessionData || "Not available"}
+If the question is a thank you or something similar, thank them, and then ask if they need anything else.
   `;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: "Sei un Career Coach virtuale esperto." },
+      { role: "system", content: "You are an experienced virtual career coach." },
       { role: "user", content: prompt },
     ],
     max_tokens: 400,
@@ -917,10 +604,11 @@ Se la domanda è un ringraziamento o qualcosa del genere ringrazia, e poi chiedi
 
   return (
     completion.choices?.[0]?.message?.content?.trim() ??
-    "Non so come rispondere a questa domanda."
+   "I don't know how to answer that question. "
   );
 }
-let conclusion = false;
+
+//chatbotLoopCompleted
 export async function chatbotLoopCompleted(
   userInput: string,
   userId: string,
@@ -933,25 +621,25 @@ export async function chatbotLoopCompleted(
 
   let session = sessions.get(sessionKey);
 
-  // Domande aggiuntive fisse
+  // Additional questions
   const additionalQuestions = [
-    {
+     {
       question:
-        "In che paese vorresti lavorare, scegli tra queste opzioni: italia, francia, inghilterra, germania, polonia",
+        "In which country would you like to work? Choose from the following options: Italy, France, England, Germany, Poland",
     },
-    { question: "In che città vorresti lavorare?" },
+    { question: "In which city would you like to work?" },
     {
       question:
-        "Vorresti un lavoro part time o full time?(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia)",
+        "Would you like a part-time or full-time job? (RECOMMENDED ANSWER: no/I don't know if the country chosen is Italy)"
     },
-    { question: "Hai in mente qualche azienda specifica, digita il nome?" },
+    { question: "Do you have a specific company in mind? Enter the name (otherwaise write no)." },
     {
       question:
-        "Quanto vorresti essere pagato(RAL anno)(CONSIGLIO DI RISPONDERE no/non lo so se il paese scelto è l'italia?)",
+        "How much would you like to be paid (annual gross salary)? (RECOMMENDED ANSWER: no/I don't know if the country selected is Italy.)"
     },
   ];
 
-  // Se nuova sessione, genera domande dall'AI + domande aggiuntive
+  // If new session, generate questions from AI + additional questions
   if (!session) {
     const generatedQuestions = await generateQuestions(topics);
     const allQuestions = [...generatedQuestions, ...additionalQuestions];
@@ -972,26 +660,16 @@ export async function chatbotLoopCompleted(
     };
   }
    
-
-
-  /*
-  if (isUserAskingQuestion(userInput)) {
-    const aiAnswer = await answerExternalQuestion(userInput);
-    return {
-      message: aiAnswer,
-      done: false,
-    };
-  }*/
  if (isUserAskingQuestion(userInput)) {
     const { sessionData } = await getUserData(userId, sessionNumber);
     const aiAnswer = await answerUserQuestion(userInput, sessionData);
     return { message: aiAnswer, done: false};
   }
 
-  // Salvo risposta precedente in MCP
+  // Unless previously answered in MCP
   const prevQuestion = session.flow[session.step].question;
 
-  // Determina il tipo di domanda per il log
+  // Determine the type of query for the log
   const questionType = session.step < 4 ? "ikigai" : "additional";
 
   console.log(" Salvataggio su Mongo:", {
@@ -1016,57 +694,49 @@ export async function chatbotLoopCompleted(
       },
     });
   } catch (err) {
-    console.error("Errore salvataggio dati MCP:", err);
+    console.error("MCP data saving error:", err);
   }
 
-   // Se finite tutte le domande (ikigai + aggiuntive)
+   // If you finish all the questions (ikigai + additional)
   if (conclusion) {
     console.log("SIAMO AL CAREER COACH BABY, session stesp ", session.step)
     sessions.delete(sessionKey);
-    
-    /*
     return {
-      message: "Ottimo, hai finito le domande ora ti do la conclusione.",
-      done: true,
-    };*/
-    return {
-       message: "Procedo a creare il piano personalizzato...",
+       message: "I will proceed to create the personalized plan...",
         done: true,
-        mode: "career_coach", // <--- nuovo flag
+        mode: "career_coach", // <--- new flag
       };
   }
 
-  
-
   session.answers.push(userInput);
 
-  // Prossima domanda
+  // next question
   session.step += 1;
   sessions.set(sessionKey, session);
 
   let nextMessage = "";
 
-  // Se abbiamo appena finito le 12 domande ikigai (cioè step == 4)
-  if (session.step === 4) {
+  // If we have just finished the 12 ikigai questions (i.e., step == 12)
+  if (session.step === 12) {
     const transitionText = await getJobSuggestion(userId, sessionNumber);
 
-    // Inserisci getJobSuggestion nel flow
+    // Insert getJobSuggestion in the flow
     session.flow.splice(session.step, 0, { question: transitionText });
     sessions.set(sessionKey, session);
 
     nextMessage = transitionText;
   } else if (session.step >= session.flow.length) {
-    // Siamo all'ultima domanda dopo ikigai, genera la conclusione con lavori
+    // We are at the last question after ikigai, generate the conclusion with jobs
     const conclusionText = await generateJobConclusion(userId, sessionNumber);
     session.flow.splice(session.step, 0, { question: conclusionText });
     sessions.set(sessionKey, session);
     nextMessage = conclusionText;
     conclusion = true; console.log("conclusione: ", conclusion)
   } else {
-    // Normale passaggio di domanda
+    // Normal application process
     nextMessage =
       session.flow[session.step]?.question ??
-      "Ottimo, hai finito le domande ora ti do la conclusione.";
+      "Great, you've finished the questions, now I'll give you the conclusion.";
   }
 
   console.log(
@@ -1081,6 +751,7 @@ export async function chatbotLoopCompleted(
   };
 }
 
+//chatbotLoopSimplified
 export async function chatbotLoopSimplified(
   userInput: string,
   userId: string,
@@ -1093,43 +764,52 @@ export async function chatbotLoopSimplified(
   let session = sessions.get(sessionKey);
 
    const preQuestions = [
-    { question: "Puoi indicarmi le tue principali skills?" },
-    { question: "Quali sono i tuoi interessi principali?" },
-    { question: "Puoi raccontarmi un po' del tuo background professionale?" },
+    { question: "Can you tell me about your main skills?" },
+    { question: "What are your main interests?" },
+    { question: "Can you tell me a little about your professional background?" },
   ];
 
 
   const additionalQuestions = [
-    { question: "In che paese vorresti lavorare? italia, francia, inghilterra, germania, polonia" },
-    { question: "In che città vorresti lavorare?" },
-    { question: "Part time o full time?" },
-    { question: "Hai in mente qualche azienda specifica?" },
-    { question: "Quanto vorresti essere pagato (RAL/anno)?" },
+    {
+      question:
+        "In which country would you like to work? Choose from the following options: Italy, France, England, Germany, Poland",
+    },
+    { question: "In which city would you like to work?" },
+    {
+      question:
+        "Would you like a part-time or full-time job? (RECOMMENDED ANSWER: no/I don't know if the country chosen is Italy)"
+    },
+    { question: "Do you have a specific company in mind? Enter the name (otherwaise write no)." },
+    {
+      question:
+        "How much would you like to be paid (annual gross salary)? (RECOMMENDED ANSWER: no/I don't know if the country selected is Italy.)"
+    },
   ];
 
-  // Nuova sessione
+  // new session
   if (!session) {
     const flow = userInput === "__INIT__" ? [...preQuestions, ...additionalQuestions] : [...additionalQuestions];
     session = { step: 0, answers: [], flow };
     sessions.set(sessionKey, session);
   }
 
-  // Inizializzazione
+  // Initialization
   if (userInput === "__INIT__" || userInput === "__INIT__1" ) {
     return { message: session.flow[0].question, done: false };
   }
 
-  // Domanda esterna
+  // External question
   if (isUserAskingQuestion(userInput)) {
     const { sessionData } = await getUserData(userId, sessionNumber);
     const aiAnswer = await answerUserQuestion(userInput, sessionData);
     return { message: aiAnswer, done: false};
   }
 
- // Salvo risposta precedente in MCP
+  // Unless previously answered in MCP
   const prevQuestion = session.flow[session.step].question;
 
-  // Determina il tipo di domanda per il log
+  // Determine the type of query for the log
   const questionType = session.step < 4 ? "ikigai" : "additional";
 
   console.log(" Salvataggio su Mongo:", {
@@ -1154,7 +834,7 @@ export async function chatbotLoopSimplified(
       },
     });
   } catch (err) {
-    console.error("Errore salvataggio dati MCP:", err);
+    console.error("MCP data saving error:", err);
   }
 
    // Se finite tutte le domande (ikigai + aggiuntive)
@@ -1162,31 +842,31 @@ export async function chatbotLoopSimplified(
     console.log("SIAMO AL CAREER COACH BABY, session stesp ", session.step)
     sessions.delete(sessionKey);
     return {
-       message: "Procedo a creare il piano personalizzato...",
+       message: "I will proceed to create the personalized plan...",
         done: true,
-        mode: "career_coach", // <--- nuovo flag
+        mode: "career_coach", 
       };
   }
 
   session.answers.push(userInput);
 
-  // Prossima domanda
+  // next question
   session.step += 1;
   sessions.set(sessionKey, session);
 
   let nextMessage = "";
 if (session.step >= session.flow.length) {
-    // Siamo all'ultima domanda dopo ikigai, genera la conclusione con lavori
+    // We are at the last question after ikigai, generate the conclusion with jobs
     const conclusionText = await generateJobConclusion(userId, sessionNumber);
     session.flow.splice(session.step, 0, { question: conclusionText });
     sessions.set(sessionKey, session);
     nextMessage = conclusionText;
     conclusion = true; console.log("conclusione: ", conclusion)
   } else {
-    // Normale passaggio di domanda
+    // Normal application process
     nextMessage =
       session.flow[session.step]?.question ??
-      "Ottimo, hai finito le domande ora ti do la conclusione.";
+      "Great, you've finished the questions, now I'll give you the conclusion.";
   }
 
   console.log(
@@ -1201,13 +881,7 @@ if (session.step >= session.flow.length) {
   };
 }
 
-
-
-
-
-const careerPlanGenerated: Map<string, boolean> = new Map();
-let message: string;
-
+//careerCoach phase function
 export async function careerCoachChat(
   userInput: string,
   userId: string,
@@ -1219,12 +893,12 @@ export async function careerCoachChat(
   const mcp = await getMcpClient();
   conclusion = false; console.log("conclusione: ", conclusion)
 
-  // 1. Recupera dati utente
+  // 1. Recover user data
   const { cvText, sessionData } = await getUserData(userId, sessionNumber);
 
   
 
-  // 2. Se prima volta, genero il piano
+  // 2. If it's your first time, I'll create the plan.
   if (!careerPlanGenerated.get(key)) {
     
     message = await generateCareerPlan(cvText, sessionData);
@@ -1234,11 +908,11 @@ export async function careerCoachChat(
       id: userId,
       number_session: sessionNumber,
       question: message,
-      answer: "__GENERATE_CAREER_PLAN__",
+      answer: "__GENERATE_CAREER_PLAN__: on mongo i save +",
       path: path,
     });
-    // Salvataggio su sessione MCP
-    
+
+    // Saving on sesison MCP
     try {
       await mcp.callTool({
         name: "save-session-data",
@@ -1250,18 +924,18 @@ export async function careerCoachChat(
           path: path,
         },
       });
-      console.log("Piano salvato su MCP:", message);
+      console.log("Plan saved on MCP:", message);
     } catch (err) {
-      console.error("Errore salvataggio piano su MCP:", err);
+      console.error("Error saving plan on MCP:", err);
     }
 
     return { message };
   }
 
-  // 3. Dopo la prima volta, rispondo solo alle domande dell'utente
+  // 3. After the first time, I only answer the user's questions.
   message = await answerUserQuestion(userInput, sessionData);
 
-  // Salvataggio domanda/risposta nella sessione
+   // Saving question/answer in session
   try {
     await mcp.callTool({
       name: "save-session-data",
@@ -1274,13 +948,16 @@ export async function careerCoachChat(
         careerCoach:careerCoach,
       },
     });
-    console.log("Domanda/risposta salvata su MCP:", {
+    console.log("Question/answer saved on MCP:", {
       question: userInput,
       answer: message,
     });
   } catch (err) {
-    console.error("Errore salvataggio domanda/risposta su MCP:", err);
+    console.error("Error saving question/answer on MCP:", err);
   }
 
   return { message };
 }
+
+export { parsePdfBase64 };
+

@@ -145,7 +145,7 @@ server.tool(
     jobType: z.string().default(""),
     company: z.string().default(""),
     salary: z.string().default(""),
-    skills: z.string().default("javascript developer"),
+    skills: z.string().default(""), // before default was javascript developer
   },
   {
     title: "Search Jobs",
@@ -165,7 +165,7 @@ server.tool(
     const companyArg = company.toLowerCase().includes("non") ? "" : company;
     const salaryArg = salary.toLowerCase().includes("non") ? "" : salary;
 
-    let query = skills || "javascript developer";
+    let query = skills || ""; //javascript developer
     if (companyArg) query += ` ${companyArg}`;
 
     const clean = (str: string) => str.trim().replace(/\s+/g, " ");
