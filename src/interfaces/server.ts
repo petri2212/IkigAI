@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import { CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { PdfDocument } from "../domain/resume.js";
 import type { User } from "../domain/user.ts";
-import type { Message, SessionDoc, QA } from "../domain/message.ts";
+import type {SessionDoc, QA } from "../domain/message.ts";
 import { MongoClient, type Collection } from "mongodb";
 import { Session } from "node:inspector/promises";
 import { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
