@@ -27,68 +27,6 @@ const server = new McpServer({
   },
 });
 
-/*
-server.resource(
-  "users",
-  "user://all",
-  {
-    description: "Get all user data from a database",
-    title: "Users",
-    mimeType: "application/json",
-  },
-  async (uri) => {
-    const users = await import("./data/users.json", {
-      with: { type: "json" },
-    }).then((m) => m.default);
-    return {
-      contents: [
-        {
-          uri: uri.href,
-          text: JSON.stringify(users),
-          mimeType: "application/json",
-        },
-      ],
-    };
-  }
-);
-
-server.resource(
-  "user-details",
-  new ResourceTemplate("users://{userId}/profile", { list: undefined }),
-  {
-    description: "Get a user's details from the database",
-    title: "User Details",
-    mimeType: "application/json",
-  },
-  async (uri, { userId }) => {
-    const users = await import("./data/users.json", {
-      with: { type: "json" },
-    }).then((m) => m.default);
-
-    const user = users.find((u) => u.id === parseInt(userId as string));
-    if (user == null) {
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            text: JSON.stringify({ error: "User not found" }),
-            mimeType: "application/json",
-          },
-        ],
-      };
-    }
-    return {
-      contents: [
-        {
-          uri: uri.href,
-          text: JSON.stringify(user),
-          mimeType: "application/json",
-        },
-      ],
-    };
-  }
-);
-*/
 server.resource(
   "get-jobs",
   "job://all",
@@ -133,17 +71,17 @@ server.resource(
       contents: [
         {
           uri: uri.href,
-          text: JSON.stringify(jobs, null, 2), //JSON.stringify(data), // or filter it before returning
+          text: JSON.stringify(jobs, null, 2),
           mimeType: "application/json",
         },
       ],
     };
   }
 );
-
+//analyze-cv-for-skills
 server.tool(
   "analyze-cv-for-skill",
-  "Analizza il CV dell'utente e restituisce una skill/professione principale",
+  "Analyze the CV for a user in order to return a profession",
   {
     cvBase64: z.string(),
     paese: z.string().optional(),
@@ -153,7 +91,7 @@ server.tool(
     stipendio: z.string().optional(),
   },
   {
-    title: "Analizza CV per skill",
+    title: "Analyze CV for skill/profession",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,
@@ -162,29 +100,29 @@ server.tool(
   async ({ cvBase64, paese, citta, tipoContratto, azienda, stipendio }) => {
     if (!cvBase64) {
       return {
-        content: [{ type: "text", text: "Errore: CV mancante." }],
+        content: [{ type: "text", text: "Error: CV missing." }],
       };
     }
 
     let cvText = "";
     if (cvBase64.startsWith("JVBER")) {
       cvText = await parsePdfBase64(cvBase64);
-      if (!cvText) cvText = "CV non leggibile";
+      if (!cvText) cvText = "CV not readable";
     } else {
-      cvText = "CV non in formato PDF";
+      cvText = "CV it's not in PDF";
     }
 
-    // Qui chiami OpenAI con cvText per inferire la skill
-    const prompt = `Sei un career coach esperto. Analizza il seguente CV e restituisci **solo il nome della professione più adatta**, senza frasi aggiuntive. 
+    //openAI call in order to obtain work profession
+    const prompt = `You are an experienced career coach. Analyze the following CV and return **only the name of the most suitable profession**, without additional phrases. 
 CV: ${cvText}`;
 
     const openaiResponse = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
-        { role: "system", content: "Sei un career coach esperto." },
+        { role: "system", content: "You are an experienced career coach." },
         { role: "user", content: prompt },
       ],
-      max_tokens: 20, // basta una parola o due
+      max_tokens: 20, // in order to get 1-2 words
       temperature: 0,
     });
 
@@ -192,12 +130,12 @@ CV: ${cvText}`;
       openaiResponse.choices?.[0]?.message?.content?.trim() ?? "";
 
     return {
-      content: [{ type: "text", text: suggestedSkill || "Project Manager" }], // fallback se vuoto
+      content: [{ type: "text", text: suggestedSkill || "Project Manager" }], // fallback if absent
     };
   }
 );
 
-// tool per prendere un lavoro specifico
+// Search for jobs based on user preferences
 server.tool(
   "search-jobs",
   "Search for jobs based on user preferences",
@@ -231,7 +169,8 @@ server.tool(
     if (companyArg) query += ` ${companyArg}`;
 
     const clean = (str: string) => str.trim().replace(/\s+/g, " ");
-
+    
+    //prepare ural
     const baseUrl = `https://api.adzuna.com/v1/api/jobs/${country}/search/1`;
     const params = new URLSearchParams({
       app_id: appId,
@@ -262,7 +201,7 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `Errore nella ricerca lavori: ${response.statusText}\nDEBUG URL: ${url}`,
+              text: `Error in searching jobs: ${response.statusText}\nDEBUG URL: ${url}`,
             },
           ],
         };
@@ -274,12 +213,13 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `Non sono stati trovati lavori corrispondenti ai criteri.\nDEBUG URL: ${url}`,
+              text: `No jobs matching the criteria were found..\nDEBUG URL: ${url}`,
             },
           ],
         };
       }
 
+      //mapping jobs found
       const jobs = data.results.map((job: any) => ({
         title: job.title,
         company: job.company?.display_name,
@@ -306,7 +246,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Errore nella ricerca lavori: ${err}\nDEBUG URL: ${url}`,
+            text: `Error in searching jobs: ${err}\nDEBUG URL: ${url}`,
           },
         ],
       };
@@ -314,100 +254,12 @@ server.tool(
   }
 );
 
-/*
-server.tool(
-  "create-user",
-  "Create a new user in the database",
-  {
-    name: z.string(),
-    email: z.string(),
-    address: z.string(),
-    phone: z.string(),
-  },
-  {
-    title: "Create User",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: true, //does interact with the external world?
-  },
-  async (params) => {
-    try {
-      const id = await createUser(params);
-      return {
-        content: [{ type: "text", text: `User ${id} created successfully` }],
-      };
-    } catch {
-      return {
-        content: [{ type: "text", text: "Failed to save user" }],
-      };
-    }
-  }
-);
-
-server.tool(
-  "create-random-user",
-  "Create a random user with fake data",
-  {
-    title: "Create Random User",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: true,
-  },
-  async () => {
-    const res = await server.server.request(
-      {
-        method: "sampling/createMessage",
-        params: {
-          messages: [
-            {
-              role: "user",
-              content: {
-                type: "text",
-                text: "Generate fake user data. The user should have a realistic name, email, address, and phone number. Return this data as a JSON object with no other text or formatter so it can be used with JSON.parse.",
-              },
-            },
-          ],
-          maxTokens: 1024,
-        },
-      },
-      CreateMessageResultSchema
-    );
-
-    if (res.content.type !== "text") {
-      return {
-        content: [{ type: "text", text: "Failed to generate user data" }],
-      };
-    }
-
-    try {
-      const fakeUser = JSON.parse(
-        res.content.text
-          .trim()
-          .replace(/^```json/, "")
-          .replace(/```$/, "")
-          .trim()
-      );
-
-      const id = await createUser(fakeUser);
-      return {
-        content: [{ type: "text", text: `User ${id} created successfully` }],
-      };
-    } catch {
-      return {
-        content: [{ type: "text", text: "Failed to generate user data" }],
-      };
-    }
-  }
-);*/
 //create pdf to mongo
-
 server.tool(
   "save-pdf-to-mongo",
   "Save an uploaded PDF file to MongoDB",
   {
-    id: z.string(), // unique id of the user
+    id: z.string(), // user id
     pdf: z.string(), // base64 encoded PDF
     session: z.string(), // session number or identifier
   },
@@ -456,9 +308,8 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Errore: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+            text: `Errore: ${error instanceof Error ? error.message : "Unknown error"
+              }`,
           },
         ],
       };
@@ -517,10 +368,10 @@ server.tool(
       if (doc.file instanceof Buffer) {
         buffer = doc.file;
       } else if (doc.file?.buffer) {
-        // Se è ArrayBuffer, convertilo
+        // if it is ArrayBuffer, convert it
         buffer = Buffer.from(doc.file.buffer);
       } else if (typeof doc.file === "string") {
-        // Se per qualche record vecchio è un path
+        // if for some old record is a path convert it
         const fs = await import("fs");
         buffer = fs.readFileSync(doc.file);
       } else {
@@ -547,7 +398,8 @@ server.tool(
     }
   }
 );
-//save user information in mongo(id,name,surname,email)
+
+//save user information in mongo(id,name,surname,email)(NOT USED YET)
 server.tool(
   "save-user-to-mongo",
   "Save user data to MongoDB",
@@ -580,7 +432,7 @@ server.tool(
       const collection = db.collection<User>("user_information");
 
       await collection.updateOne(
-        { _id: id }, // usa `id` come _id per garantire unicità
+        { _id: id }, // ITS NOT CORRECT NOW, i have to generate the _id with mongo, then i save also the user id
         {
           $set: {
             name,
@@ -589,7 +441,7 @@ server.tool(
             updatedAt: new Date(),
           },
         },
-        { upsert: true } // crea se non esiste
+        { upsert: true } // create if not exist
       );
 
       return {
@@ -605,9 +457,8 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+            text: `Error: ${error instanceof Error ? error.message : "Unknown error"
+              }`,
           },
         ],
       };
@@ -616,7 +467,8 @@ server.tool(
     }
   }
 );
-//save user profiling
+
+//save user profiling(NOT USED YET, INSTEAD WE USE SESSION DATA FOR ALL THE SESSION)
 server.tool(
   "save-user-profiling-mongo",
   "Save user profiling to MongoDB",
@@ -645,18 +497,17 @@ server.tool(
   }
 );
 
-
 //save session data
 server.tool(
   "save-session-data",
   "Save session question and answer to MongoDB (append or insert)",
   {
-    id: z.string(),
-    number_session: z.string(),
+    id: z.string(), //user id
+    number_session: z.string(), 
     question: z.string(),
     answer: z.string(),
-    path: z.string(),
-    careerCoach: z.boolean().optional(), // 👉 parametro opzionale
+    path: z.string(), // completed or simplified 
+    careerCoach: z.boolean().optional(), // optional pharameter, to save the tag career coach for the messages in career coach phase
   },
   {
     title: "Save Session Data (Append or Insert)",
@@ -681,9 +532,9 @@ server.tool(
 
       const collection = db.collection<SessionDoc>("Sessions");
       const existingDoc = await collection.findOne({ id, number_session });
-      console.log("Cosa c’è in existing coso: ", existingDoc);
+      //console.log("Cosa c’è in existing coso: ", existingDoc);
 
-      // Costruisco l'entry da salvare
+      // I build entry to save
       const newEntry: any = {
         question,
         answer,
@@ -691,7 +542,7 @@ server.tool(
       };
 
       if (typeof careerCoach === "boolean") {
-        newEntry.careerCoach = careerCoach; // 👉 lo metto dentro al Q&A
+        newEntry.careerCoach = careerCoach; //  i put the tag in Q&A
       }
 
       if (existingDoc) {
@@ -709,12 +560,12 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `Q&A aggiunta alla sessione ${number_session} dell'utente ${id}`,
+              text: `Q&A added to session ${number_session} for user ${id}`,
             },
           ],
         };
       } else {
-        // Crea nuovo documento
+        // Create new document
         const newDoc: SessionDoc = {
           id,
           number_session,
@@ -729,7 +580,7 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `Nuova sessione creata con _id: ${insertResult.insertedId}`,
+              text: `New session created with _id: ${insertResult.insertedId}`,
             },
           ],
         };
@@ -748,7 +599,6 @@ server.tool(
     }
   }
 );
-
 
 // get session data
 server.tool(
@@ -798,7 +648,7 @@ server.tool(
         timestamp: entry.timestamp
           ? new Date(entry.timestamp).toISOString()
           : new Date().toISOString(),
-        careerCoach: entry.careerCoach ?? undefined, // 👉 aggiunto
+        careerCoach: entry.careerCoach ?? undefined, //career coach tag
       }));
 
       const sessionData: SessionData = {
@@ -825,9 +675,7 @@ server.tool(
   }
 );
 
-
-
-// get all user sessions
+// get all user sessions(A BIT DEPRECATED)
 server.tool(
   "get-all-user-sessions",
   "Retrieve all Q&A sessions for a specific user",
@@ -888,6 +736,7 @@ server.tool(
   }
 );
 
+// fake prompt
 server.prompt(
   "generate-fake-user",
   "Generate a fake user based on a given name",
@@ -909,13 +758,8 @@ server.prompt(
 );
 
 async function main() {
-  // try {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  //} catch (err) {
-  // console.error("Fatal error in server:", err)
-  // process.exit(1)
-  //}
 }
 
 main();
