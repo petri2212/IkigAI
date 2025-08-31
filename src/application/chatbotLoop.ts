@@ -550,11 +550,15 @@ async function generateCareerPlan(
   sessionData: string
 ): Promise<string> {
   const prompt = `
-You are an experienced virtual career coach.
-You have access to the user's CV and session data.
-Carefully analyze and draw up a personalized plan to achieve the user's goals.
-Respond in a clear, practical, and detailed manner. (The entire text must be less than 1000 words.)
-Put the most important information in bold. 
+You are an experienced virtual career coach. You have access to the user's CV and session data. Carefully analyze and draw up a personalized plan to achieve the user's goals. 
+
+The plan must include: 
+- **Concrete operational steps** the user can take immediately.  
+- **Suggestions for improving the CV** (structure, keywords, strengths to highlight). If the CV is not available, **skip this section**.  
+- **Interview guidelines** (key questions to prepare for, how to present oneself, tips for confidence).  
+- **Upskilling actions** (courses, certifications, soft/hard skills to develop).  
+
+Respond in a clear, practical, and detailed manner. (The entire text must be less than 1000 words.) Highlight the most important information in **bold**.  
 
 CV: ${cvText || "Not available"}
 Session: ${sessionData || "Not available"}
@@ -566,7 +570,7 @@ Session: ${sessionData || "Not available"}
       { role: "system", content: "You are an experienced virtual career coach." },
       { role: "user", content: prompt },
     ],
-    max_tokens: 1000,
+    max_tokens: 1500,
     temperature: 0.6,
   });
 
