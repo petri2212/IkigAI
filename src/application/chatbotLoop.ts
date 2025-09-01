@@ -348,7 +348,7 @@ async function generateJobConclusion(
 
     // Questions of interest for jobs
     const jobQuestions = [
-      "Perfect! Here are some job suggestions based on your CV and session: ",
+      "Perfect! Here are some job suggestions based on your CV and session",
       "In which country would you like to work? Choose from these options: Italy, France, England, Germany, Poland ",
       "In which city would you like to work? ",
       "Would you like a part-time or full-time job? ",
@@ -445,6 +445,10 @@ async function generateJobConclusion(
     // Generation conclusion with AI
     const prompt = `
 You are an experienced career coach. Based on the following data:
+Important rules:
+
+1. If the user's name is not available, **do not include a greeting with a name**. Simply start the message without using "Dear [Name]" or similar.
+2. If no jobs are found in the JOBS FOUND section, **use the session data** to understand the user's interests, preferences, or previous selections and suggest appropriate job roles accordingly.
 
 USER PREFERENCES:
 - Country: ${paese}
@@ -466,14 +470,17 @@ URL: ${j.url}`
   )
   .join("\n\n")}
 
-Write a professional conclusion that:
-1. Summarizes the user's preferences
-2. Presents the jobs found in an appealing way
-3. Gives practical advice for applying
-Put the most important information in bold.
+SESSION DATA:
+Session: ${sessionResponse || "Not available"}
 
-
-Keep the tone professional but friendly. Limit it to 500 words (so summarize if necessary). As the last sentence of the message, ask them, “OK, would you like me to create a personalized plan for you to achieve your goals?”".
+- Summarize the user's preferences
+- Present the jobs found in an appealing way
+- If no jobs are available, suggest roles based on session data
+- Give practical advice for applying
+- Put the most important information in **bold**
+- Keep the tone professional but friendly
+- Limit it to 500 words
+- End with: “OK, would you like me to create a personalized plan for you to achieve your goals?”
 `;
 
     const completion = await openai.chat.completions.create({
