@@ -22,6 +22,7 @@ import ChatHistory, { ChatHistoryRef } from "./chatHistory";
 import SessionMessages from "./sessionMessages";
 
 import { Message } from "./firstMessage"; // Message model
+import TypewriterMarkdown from "./typewriterMarkdown";
 
 // Main Chat Area Font
 const manrope = Manrope({
@@ -154,16 +155,16 @@ export default function ChatPage() {
         if (botResponse.mode === "career_coach") {
           setStage("careerCoach");
           const botResponse = await mockBotResponse(
-          "__INIT__",
-          uid,
-          sessionID,
-          path,
-           "careerCoach"
-        );
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: botResponse.message },
-        ]);
+            "__INIT__",
+            uid,
+            sessionID,
+            path,
+            "careerCoach"
+          );
+          setMessages((prev) => [
+            ...prev,
+            { sender: "bot", text: botResponse.message },
+          ]);
           /*
           setMessages((prev) => [
             ...prev,
@@ -502,7 +503,17 @@ export default function ChatPage() {
                       }}
                     >
                       {/* Output */}
-                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+
+                      {msg.sender === "user" ? (
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      ) : (
+                        <TypewriterMarkdown
+                          text={msg.text}
+                          speed={16}
+                        />
+                      )
+                      }
+
                     </div>
                   </div>
                 ))}
@@ -688,8 +699,8 @@ export default function ChatPage() {
             </button>
           </div>
         </form>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }
 

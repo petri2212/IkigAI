@@ -18,9 +18,7 @@ export default function SessionMessages({
   sessionId,
 }: SessionMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting">(
-    "askCV"
-  );
+  const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting" | "careerCoach">("careerCoach");
   const [isFetching, setIsFetching] = useState(false); // loading chat
   const [isTyping, setIsTyping] = useState(false); // bot typing
   const [hasStarted, setHasStarted] = useState(false); // For animation

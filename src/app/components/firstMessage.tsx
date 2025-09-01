@@ -8,7 +8,7 @@ export type Message = {
 
 export function sendFirstBotMessage(
   setMessages: Dispatch<SetStateAction<Message[]>>,
-  setStage: Dispatch<SetStateAction<"askCV" | "waitingForCV" | "chatting">>,
+  setStage: Dispatch<SetStateAction<"askCV" | "waitingForCV" | "chatting" | "careerCoach">>,
   time: number
   
 ) {
