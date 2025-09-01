@@ -331,6 +331,8 @@ async function generateJobConclusion(
       name: "get-session-data",
       arguments: { id: userId, number_session: sessionNumber },
     })) as ToolResponse;
+    
+    const sessionData = sessionResponse.content?.[0]?.text ?? "";
 
     console.log("session number", sessionNumber);
     console.log("userId", userId);
@@ -348,7 +350,7 @@ async function generateJobConclusion(
 
     // Questions of interest for jobs
     const jobQuestions = [
-      "Perfect! Here are some job suggestions based on your CV and session",
+      "Choose one, or request more information about a specific job.",
       "In which country would you like to work? Choose from these options: Italy, France, England, Germany, Poland ",
       "In which city would you like to work? ",
       "Would you like a part-time or full-time job? ",
@@ -447,15 +449,13 @@ async function generateJobConclusion(
 You are an experienced career coach. Based on the following data:
 Important rules:
 
-1. If the user's name is not available, **do not include a greeting with a name**. Simply start the message without using "Dear [Name]" or similar.
-2. If no jobs are found in the JOBS FOUND section, **use the session data** to understand the user's interests, preferences, or previous selections and suggest appropriate job roles accordingly.
+1. If the user's name is not available, **do not include a greeting with a name**. Start the message directly without using "Dear [Name]" or similar.
+2. If no jobs are found in the JOBS FOUND section:
+   - If the Role (${skills}) is specified, suggest job opportunities based on that Role.
+   - If the Role is empty, analyze the session data to identify the user's previously selected or suggested roles. 
+     For example, check previous responses like "Perfect! Here are the job suggestions based on your CV and session: ...". 
+     Use the role mentioned in that response as the reference for suggesting jobs.
 
-USER PREFERENCES:
-- Country: ${paese}
-- City: ${citta}  
-- Contract type: ${tipoContratto}
-- Preferred company: ${azienda}
-- Desired salary: ${stipendio}
 
 JOBS FOUND:
 ${jobs
@@ -471,7 +471,7 @@ URL: ${j.url}`
   .join("\n\n")}
 
 SESSION DATA:
-Session: ${sessionResponse || "Not available"}
+Session: ${sessionData || "Not available"}
 
 - Summarize the user's preferences
 - Present the jobs found in an appealing way
@@ -586,21 +586,58 @@ Session: ${sessionData || "Not available"}
     "I was unable to generate a plan."
   );
 }
-
+type Tool = {
+  name: string;
+  description: string;
+};
 // answer user question 
 async function answerUserQuestion(
   userInput: string,
   sessionData: string
 ): Promise<string> {
+  const mcp = await getMcpClient();
+const availableToolsRaw = await mcp.listTools();
+
+// Change in readable array
+const availableTools: Tool[] = Object.entries(availableToolsRaw).map(([name, tool]) => ({
+  name,
+  description: (tool as any).description || "No description available",
+}));
+
+const toolsDescription = availableTools
+  .map(tool => `- ${tool.name}: ${tool.description}`)
+  .join("\n");
+
   const prompt = `
 You are an experienced virtual career coach.
-You have access to the user's session data.
+You have access to the user's session data and the following MCP tools:
+
+${toolsDescription}
+
 Answer the following question clearly and practically:
 
 Question: ${userInput}
 
 Session: ${sessionData || "Not available"}
-If the question is a thank you or something similar, thank them, and then ask if they need anything else.
+
+Rules:
+1. **Prioritize any requests that relate to information already present in the session**. 
+   - If the user asks about something that can be answered using session data, respond to that first, fully and clearly.
+   - Only after addressing session-related requests, consider other advice, tools, or general guidance.
+
+2. If the user requests to use a tool and **you have all the necessary information to execute it**, respond with:
+   - The tool name to run
+   - The parameters/inputs required for the tool
+   (Do not execute the tool yourself; the client will handle execution using MCP.)
+
+3. If the user requests a tool but **information is missing**, ask the user politely for the missing data.
+
+4. If the user says thank you or something similar, respond courteously and ask if they need anything else.
+
+5. Provide actionable, practical advice whenever possible.
+
+6. Keep responses professional but friendly.
+
   `;
 
   const completion = await openai.chat.completions.create({
