@@ -489,7 +489,7 @@ Session: ${sessionData || "Not available"}
         { role: "system", content: "You are an experienced career coach." },
         { role: "user", content: prompt },
       ],
-      max_tokens: 600,
+      max_tokens: 1000,
       temperature: 0.7,
     });
 
@@ -1078,7 +1078,7 @@ export async function careerCoachChat(
   
 
   // 2. If it's your first time, I'll create the plan.
-  /*
+  
   if (!careerPlanGenerated.get(key)) {
     
     message = await generateCareerPlan(cvText, sessionData);
@@ -1110,7 +1110,7 @@ export async function careerCoachChat(
     }
 
     return { message };
-  }*/
+  }
 
   // 3. After the first time, I only answer the user's questions.
   message = await answerUserQuestion(userInput, sessionData);
