@@ -591,6 +591,7 @@ type Tool = {
   description: string;
 };
 // answer user question 
+/*
 async function answerUserQuestion(
   userInput: string,
   sessionData: string
@@ -654,6 +655,136 @@ Rules:
     completion.choices?.[0]?.message?.content?.trim() ??
    "I don't know how to answer that question. "
   );
+}*/
+
+function extractMessage(completion: any): string {
+  return (
+    completion.choices?.[0]?.message?.content?.trim() ??
+    "I don't know how to answer that question."
+  );
+}
+
+export async function answerUserQuestion(
+  userInput: string,
+  sessionData: string
+): Promise<string> {
+  const mcp = await getMcpClient();
+  const availableToolsRaw = await mcp.listTools();
+  const toolsArray = availableToolsRaw.tools || [];
+
+  const toolsDescription = toolsArray
+    .map((tool) => `- ${tool.name}: ${tool.description}`)
+    .join("\n");
+
+  const prompt = `
+You are an experienced virtual career coach.
+You have access to the user's session data and the following MCP tools:
+
+${toolsDescription}
+
+Answer the following user question.
+
+Question: ${userInput}
+
+Session: ${sessionData || "Not available"}
+
+Rules:
+1. If you want to use a tool, ALWAYS answer in pure JSON with the format:
+{
+  "tool": "<tool_name>",
+  "parameters": { ... }
+}
+
+2. If no tool is needed, answer normally with text.
+
+3. If the user asks for a tool but required parameters are missing, ask politely for them.
+
+4. Keep responses professional but friendly.
+`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "You are an experienced virtual career coach." },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 500,
+    temperature: 0.6,
+  });
+
+  const response = extractMessage(completion);
+
+  function extractJsonFromMarkdown(str: string) {
+    try {
+      const cleaned = str.replace(/```json\s*|```/g, "").trim();
+      return JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const parsed = extractJsonFromMarkdown(response);
+
+    if (parsed && parsed.tool && parsed.parameters) {
+      const toolObj = toolsArray.find((t) => t.name === parsed.tool);
+
+      if (!toolObj) {
+        return `Sorry tool "${parsed.tool}" not available.`;
+      }
+
+      const cleanedParams = Object.fromEntries(
+        Object.entries(parsed.parameters).map(([k, v]) => [k, v === "non" ? "" : v])
+      );
+
+      console.log("LLM tool call:", {
+        name: parsed.tool,
+        arguments: cleanedParams,
+      });
+
+      
+      let result;
+      try {
+        result = await mcp.callTool({
+          name: parsed.tool,
+          arguments: cleanedParams,
+          timeout: 60000, // of sdk supports timeout
+        } as any);
+      } catch (err: any) {
+        if (err.code === -32001) {
+          return "Sorry the tool is too slow, retry ";
+        }
+        throw err;
+      }
+
+      // Spiegazione del risultato all'utente
+      const finalPrompt = `
+The tool "${parsed.tool}" was executed with the given parameters.
+Here is the raw result:
+
+${JSON.stringify(result)}
+
+Please explain this result to the user in a clear and practical way.
+`;
+
+      const finalCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are an experienced virtual career coach." },
+          { role: "user", content: finalPrompt },
+        ],
+        max_tokens: 400,
+        temperature: 0.6,
+      });
+
+      return extractMessage(finalCompletion);
+    }
+  } catch (err) {
+    console.error("Failed to parse LLM response as JSON:", err);
+    return response;
+  }
+
+  return response;
 }
 
 //chatbotLoopCompleted
@@ -947,6 +1078,7 @@ export async function careerCoachChat(
   
 
   // 2. If it's your first time, I'll create the plan.
+  /*
   if (!careerPlanGenerated.get(key)) {
     
     message = await generateCareerPlan(cvText, sessionData);
@@ -978,7 +1110,7 @@ export async function careerCoachChat(
     }
 
     return { message };
-  }
+  }*/
 
   // 3. After the first time, I only answer the user's questions.
   message = await answerUserQuestion(userInput, sessionData);
