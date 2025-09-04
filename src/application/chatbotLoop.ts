@@ -2,6 +2,7 @@ import { ToolResponse } from "@/domain/toolResponse";
 import { getMcpClient } from "@/infrastructure/mcp/McpClient";
 import { parsePdfBase64 } from "@/tools/parsePdf";
 import { OpenAI } from "openai";
+import { QAEntry, SessionData } from "@/app/api/getSessionMessages/route";
 
 let conclusion = false;
 const careerPlanGenerated: Map<string, boolean> = new Map();
@@ -1075,11 +1076,26 @@ export async function careerCoachChat(
   // 1. Recover user data
   const { cvText, sessionData } = await getUserData(userId, sessionNumber);
 
-  
+  // check if the plan already exist
+let parsedSession: SessionData | null = null;
+
+try {
+  parsedSession = typeof sessionData === "string"
+    ? JSON.parse(sessionData).session
+    : sessionData;
+} catch (err) {
+  console.error("Errore parsing sessionData:", err);
+}
+
+const q_and_a = parsedSession?.q_and_a ?? [];
+
+const hasCareerPlan = q_and_a.some(
+  (entry) => entry.answer === "+"
+);
 
   // 2. If it's your first time, I'll create the plan.
   
-  if (!careerPlanGenerated.get(key)) {
+  if (!careerPlanGenerated.get(key) && !hasCareerPlan) {
     
     message = await generateCareerPlan(cvText, sessionData);
     careerPlanGenerated.set(key, true);

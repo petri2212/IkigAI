@@ -11,18 +11,24 @@ import { Message } from "@/app/components/firstMessage";
 type SessionMessagesProps = {
   uid: string;
   sessionId?: string;
+  stage: "askCV" | "waitingForCV" | "chatting" | "careerCoach";
+  setStage: React.Dispatch<
+    React.SetStateAction<"askCV" | "waitingForCV" | "chatting" | "careerCoach">
+  >;
 };
 
 export default function SessionMessages({
   uid,
   sessionId,
+  stage,
+  setStage, 
 }: SessionMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [stage, setStage] = useState<"askCV" | "waitingForCV" | "chatting" | "careerCoach">("careerCoach");
   const [isFetching, setIsFetching] = useState(false); // loading chat
   const [isTyping, setIsTyping] = useState(false); // bot typing
   const [hasStarted, setHasStarted] = useState(false); // For animation
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,7 +45,7 @@ export default function SessionMessages({
 
       if (data.q_and_a?.length) {
         const qnaMessages: Message[] = [];
-
+        setStage("careerCoach");
         for (const entry of data.q_and_a) {
           console.log("CAREER COACH: ", entry.careerCoach);
 

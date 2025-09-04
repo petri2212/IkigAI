@@ -469,7 +469,7 @@ export default function ChatPage() {
             ) : (
               <div>
                 {/* Search for messages using sessionID and uid */}
-                <SessionMessages uid={uid!} sessionId={sessionID!} />
+                <SessionMessages uid={uid!} sessionId={sessionID!} stage={stage} setStage={setStage}/>
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
