@@ -701,6 +701,8 @@ Rules:
 3. If the user asks for a tool but required parameters are missing, ask politely for them.
 
 4. Keep responses professional but friendly.
+
+5. Whenever the user thanks you, ALWAYS respond by thanking them back and asking if they need any further information or assistance.
 `;
 
   const completion = await openai.chat.completions.create({
